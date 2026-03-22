@@ -1,0 +1,1354 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>ตรวจจุดตรวจ ป.5 พัน.5</title>
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+:root {
+  --amber:#f59e0b; --amber-light:#fcd34d; --amber-dark:#b45309;
+  --bg:#0a0a0f; --surface:#12121a; --surface2:#1a1a26; --surface3:#222233;
+  --border:#2a2a3d; --border2:#333350;
+  --text:#e8e8f0; --muted:#6b6b88;
+  --red:#ef4444; --green:#22c55e; --blue:#3b82f6;
+}
+*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+body { font-family:'Sarabun',sans-serif; background:var(--bg); color:var(--text); min-height:100vh; overflow-x:hidden; }
+
+.ov { position:fixed; inset:0; background:rgba(10,10,15,.97); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:18px; padding:36px 24px; text-align:center; z-index:9999; }
+.ov.hidden { display:none; }
+.spinner { width:52px; height:52px; border:3px solid var(--border2); border-top-color:var(--amber); border-radius:50%; animation:spin .9s linear infinite; }
+@keyframes spin { to { transform:rotate(360deg); } }
+.ov-icon { width:76px; height:76px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:36px; }
+.ov-icon.block { background:rgba(239,68,68,.12); border:2px solid var(--red); }
+.ov-icon.ok    { background:rgba(34,197,94,.12);  border:2px solid var(--green); }
+.ov-icon.done  { background:rgba(245,158,11,.12); border:2px solid var(--amber); }
+.ov-title { font-size:21px; font-weight:700; }
+.ov-title.red   { color:var(--red); }
+.ov-title.green { color:var(--green); }
+.ov-title.amber { color:var(--amber); }
+.ov-sub { font-size:14px; color:var(--muted); line-height:1.8; white-space:pre-line; max-width:300px; }
+.ov-gps-dist { font-family:'IBM Plex Mono',monospace; font-size:30px; font-weight:700; color:var(--red); }
+.ov-gps-bar  { width:100%; max-width:260px; height:8px; background:var(--surface3); border-radius:4px; overflow:hidden; }
+.ov-gps-fill { height:100%; border-radius:4px; transition:width .5s; }
+
+.hdr { background:var(--surface); border-bottom:1px solid rgba(245,158,11,.15); padding:13px 16px; display:flex; align-items:center; gap:11px; position:sticky; top:0; z-index:100; }
+.hdr-badge { width:40px; height:40px; background:linear-gradient(135deg,var(--amber),var(--amber-dark)); border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:20px; flex-shrink:0; box-shadow:0 4px 16px rgba(245,158,11,.35); }
+.hdr-title { font-size:16px; font-weight:700; }
+.hdr-sub   { font-size:11px; color:var(--muted); margin-top:1px; }
+.hdr-guard { margin-left:auto; background:var(--surface2); border:1px solid var(--border2); border-radius:20px; padding:4px 11px; font-size:11px; color:var(--amber); font-family:'IBM Plex Mono',monospace; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:130px; }
+
+.content { padding:14px 13px 70px; max-width:500px; margin:0 auto; }
+
+.tour-bar { background:var(--surface); border:1px solid var(--border2); border-radius:14px; padding:13px 15px; display:flex; align-items:center; gap:11px; margin-bottom:14px; }
+.tb-icon  { font-size:24px; }
+.tb-label { font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:.5px; margin-bottom:2px; }
+.tb-val   { font-size:15px; font-weight:700; font-family:'IBM Plex Mono',monospace; color:var(--amber); }
+.tb-sep   { width:1px; background:var(--border2); align-self:stretch; }
+.tb-right { margin-left:auto; text-align:right; }
+
+.progress-wrap  { margin-bottom:14px; }
+.progress-label { font-size:11px; color:var(--muted); font-weight:600; text-transform:uppercase; letter-spacing:.8px; margin-bottom:7px; }
+.dots { display:flex; gap:4px; flex-wrap:wrap; }
+.dot  { width:26px; height:7px; border-radius:4px; background:var(--surface3); border:1px solid var(--border2); transition:all .3s; }
+.dot.done     { background:var(--green); border-color:var(--green); }
+.dot.abnormal { background:var(--red);   border-color:var(--red); }
+
+.gps-badge { font-size:11px; padding:3px 9px; border-radius:20px; font-family:'IBM Plex Mono',monospace; font-weight:600; flex-shrink:0; }
+.gps-badge.checking { background:rgba(59,130,246,.15); border:1px solid rgba(59,130,246,.3); color:var(--blue); }
+.gps-badge.ok   { background:rgba(34,197,94,.15); border:1px solid rgba(34,197,94,.3); color:var(--green); }
+.gps-badge.fail { background:rgba(239,68,68,.15); border:1px solid rgba(239,68,68,.3); color:var(--red); }
+.gps-badge.na   { background:var(--surface3); border:1px solid var(--border2); color:var(--muted); }
+
+.gps-info { display:flex; align-items:center; gap:9px; padding:10px 13px; border-radius:11px; font-size:13px; margin-bottom:4px; }
+.gps-info.hidden   { display:none; }
+.gps-info.checking { background:rgba(59,130,246,.08); border:1px solid rgba(59,130,246,.2); color:var(--blue); }
+.gps-info.ok       { background:rgba(34,197,94,.08);  border:1px solid rgba(34,197,94,.25); color:var(--green); }
+.gps-info.fail     { background:rgba(239,68,68,.08);  border:1px solid rgba(239,68,68,.25); color:var(--red); }
+.gps-info.nocoord  { background:rgba(245,158,11,.08); border:1px solid rgba(245,158,11,.25); color:var(--amber); }
+.gps-spin { width:15px; height:15px; border:2px solid currentColor; border-top-color:transparent; border-radius:50%; animation:spin .8s linear infinite; flex-shrink:0; }
+
+.card { background:var(--surface); border:1px solid var(--border2); border-radius:15px; overflow:hidden; margin-bottom:11px; animation:fadeUp .3s ease; }
+@keyframes fadeUp { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+.card-hdr  { padding:12px 15px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:7px; font-weight:600; font-size:14px; flex-wrap:wrap; }
+.card-body { padding:13px; display:flex; flex-direction:column; gap:11px; }
+
+.cp-list { display:flex; flex-direction:column; gap:6px; }
+.cp-item { display:flex; align-items:center; gap:10px; padding:11px 13px; background:var(--surface2); border:1px solid var(--border2); border-radius:11px; cursor:pointer; transition:all .18s; user-select:none; }
+.cp-item:active   { transform:scale(.98); }
+.cp-item.pending:hover  { border-color:rgba(245,158,11,.5); background:rgba(245,158,11,.05); }
+.cp-item.done     { border-color:rgba(34,197,94,.35); background:rgba(34,197,94,.04); }
+.cp-item.done:hover     { border-color:rgba(34,197,94,.6); background:rgba(34,197,94,.08); }
+.cp-item.abnormal { border-color:rgba(239,68,68,.35);  background:rgba(239,68,68,.04); }
+.cp-item.abnormal:hover { border-color:rgba(239,68,68,.6); background:rgba(239,68,68,.08); }
+.cp-num  { width:28px; height:28px; border-radius:8px; background:var(--surface3); display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:700; font-family:'IBM Plex Mono',monospace; color:var(--muted); flex-shrink:0; }
+.cp-item.done .cp-num     { background:rgba(34,197,94,.2); color:var(--green); }
+.cp-item.abnormal .cp-num { background:rgba(239,68,68,.2); color:var(--red); }
+.cp-name   { font-size:14px; font-weight:600; }
+.cp-loc    { font-size:11px; color:var(--muted); margin-top:1px; }
+.cp-status { margin-left:auto; font-size:20px; flex-shrink:0; }
+.cp-tap-hint { font-size:10px; color:var(--amber); margin-top:2px; font-weight:600; letter-spacing:.3px; }
+
+.qr-idle { display:flex; flex-direction:column; align-items:center; gap:11px; padding:28px 18px; background:var(--surface2); border:2px dashed var(--border2); border-radius:13px; cursor:pointer; transition:all .2s; }
+.qr-idle:active { background:var(--surface3); }
+.qr-idle.qr-locked { cursor:not-allowed; opacity:.55; border-color:rgba(239,68,68,.35); background:rgba(239,68,68,.04); }
+.qr-idle.qr-ready  { border-color:rgba(245,158,11,.5); background:rgba(245,158,11,.04); cursor:pointer; opacity:1; }
+.qr-idle-icon  { font-size:48px; }
+.qr-idle-title { font-size:16px; font-weight:700; }
+.qr-idle-sub   { font-size:12px; color:var(--muted); text-align:center; line-height:1.6; }
+
+.qr-area { position:relative; border-radius:13px; overflow:hidden; background:#000; aspect-ratio:1/1; max-height:260px; }
+#reader { width:100%; height:100%; }
+#reader video { width:100% !important; height:100% !important; object-fit:cover; }
+
+.qr-overlay { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; pointer-events:none; }
+.qr-frame { width:165px; height:165px; position:relative; }
+.qr-frame::before,.qr-frame::after,.qr-frame span::before,.qr-frame span::after { content:''; position:absolute; width:24px; height:24px; border-color:var(--amber); border-style:solid; }
+.qr-frame::before { top:0; left:0; border-width:3px 0 0 3px; border-radius:3px 0 0 0; }
+.qr-frame::after  { top:0; right:0; border-width:3px 3px 0 0; border-radius:0 3px 0 0; }
+.qr-frame span::before { bottom:0; left:0; border-width:0 0 3px 3px; border-radius:0 0 0 3px; }
+.qr-frame span::after  { bottom:0; right:0; border-width:0 3px 3px 0; border-radius:0 0 3px 0; }
+.qr-line { position:absolute; width:calc(100% - 34px); height:2px; background:linear-gradient(90deg,transparent,var(--amber),transparent); top:17px; left:17px; animation:scanLine 2s ease-in-out infinite; box-shadow:0 0 8px var(--amber); }
+@keyframes scanLine { 0% { top:17px; opacity:0; } 10% { opacity:1; } 90% { opacity:1; } 100% { top:calc(100% - 17px); opacity:0; } }
+
+.qr-ok { display:flex; align-items:center; gap:11px; padding:13px 15px; background:rgba(34,197,94,.08); border:1px solid rgba(34,197,94,.3); border-radius:11px; }
+.qr-ok-name { font-size:16px; font-weight:700; color:var(--green); }
+.qr-ok-sub  { font-size:11px; color:var(--muted); margin-top:2px; }
+.qr-rescan  { margin-left:auto; font-size:12px; color:var(--amber); text-decoration:underline; cursor:pointer; flex-shrink:0; }
+
+/* ── Photo Capture ── */
+.photo-area { display:flex; flex-direction:column; gap:10px; }
+.photo-preview-wrap { position:relative; border-radius:13px; overflow:hidden; background:#000; aspect-ratio:4/3; max-height:260px; }
+.photo-preview-wrap video,
+.photo-preview-wrap canvas { width:100% !important; height:100% !important; object-fit:cover; display:block; }
+.photo-btn-row { display:flex; gap:8px; }
+.photo-btn { flex:1; display:flex; flex-direction:column; align-items:center; gap:5px; padding:13px 8px; border:1.5px solid var(--border2); border-radius:11px; background:var(--surface2); color:var(--text); font-family:'Sarabun',sans-serif; font-size:13px; font-weight:600; cursor:pointer; transition:all .2s; }
+.photo-btn:active { transform:scale(.97); }
+.photo-btn .pb-icon { font-size:26px; }
+.photo-btn.active { border-color:var(--amber); background:rgba(245,158,11,.08); color:var(--amber); }
+.photo-thumb { position:relative; border-radius:11px; overflow:hidden; aspect-ratio:4/3; background:var(--surface3); }
+.photo-thumb img { width:100%; height:100%; object-fit:cover; display:block; }
+.photo-thumb-badge { position:absolute; top:7px; right:7px; background:rgba(34,197,94,.9); border-radius:20px; font-size:11px; font-weight:700; color:#fff; padding:2px 9px; }
+.photo-retake { position:absolute; bottom:7px; right:7px; background:rgba(0,0,0,.65); border:1px solid rgba(255,255,255,.25); border-radius:8px; font-size:12px; color:#fff; padding:4px 10px; cursor:pointer; font-family:'Sarabun',sans-serif; }
+.photo-idle { display:flex; flex-direction:column; align-items:center; gap:10px; padding:28px 18px; background:var(--surface2); border:2px dashed var(--border2); border-radius:13px; }
+.photo-idle-icon  { font-size:48px; }
+.photo-idle-title { font-size:15px; font-weight:700; }
+.photo-idle-sub   { font-size:12px; color:var(--muted); text-align:center; line-height:1.6; }
+.photo-req-badge  { font-size:10px; background:rgba(239,68,68,.15); border:1px solid rgba(239,68,68,.35); color:var(--red); border-radius:20px; padding:2px 9px; font-weight:700; }
+
+.status-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.status-btn  { display:flex; flex-direction:column; align-items:center; gap:5px; padding:15px 8px; background:var(--surface2); border:2px solid var(--border2); border-radius:11px; cursor:pointer; font-family:'Sarabun',sans-serif; color:var(--text); transition:all .2s; }
+.status-btn:active { transform:scale(.97); }
+.status-btn.sel-normal   { border-color:var(--green); background:rgba(34,197,94,.1); }
+.status-btn.sel-abnormal { border-color:var(--red);   background:rgba(239,68,68,.1); }
+.status-btn-icon  { font-size:28px; }
+.status-btn-label { font-size:13px; font-weight:600; }
+.status-btn-sub   { font-size:10px; color:var(--muted); }
+
+textarea { width:100%; background:var(--bg); border:1px solid var(--border2); border-radius:10px; padding:11px 13px; font-family:'Sarabun',sans-serif; font-size:14px; color:var(--text); resize:none; outline:none; transition:border-color .2s; min-height:75px; line-height:1.6; }
+textarea:focus { border-color:var(--amber); }
+textarea::placeholder { color:var(--muted); }
+textarea.required { border-color:rgba(239,68,68,.5); }
+.field label { font-size:12px; font-weight:600; color:var(--muted); text-transform:uppercase; letter-spacing:.5px; display:block; margin-bottom:5px; }
+.field label span { color:var(--red); }
+
+.confirm-wrap { background:var(--surface); border:1px solid rgba(245,158,11,.3); border-radius:15px; overflow:hidden; margin-bottom:13px; }
+.confirm-hdr  { padding:11px 15px; background:rgba(245,158,11,.1); border-bottom:1px solid rgba(245,158,11,.2); font-weight:700; font-size:14px; color:var(--amber); }
+.confirm-row  { display:flex; padding:9px 15px; border-bottom:1px solid var(--border); gap:11px; }
+.confirm-row:last-child { border-bottom:none; }
+.confirm-key { font-size:11px; color:var(--muted); width:72px; flex-shrink:0; padding-top:2px; text-transform:uppercase; letter-spacing:.3px; }
+.confirm-val { font-size:13px; font-weight:600; word-break:break-all; }
+.confirm-val.mono  { font-family:'IBM Plex Mono',monospace; }
+.confirm-val.green { color:var(--green); }
+.confirm-val.red   { color:var(--red); }
+.confirm-photo { width:100%; border-radius:9px; object-fit:cover; max-height:160px; display:block; margin-top:4px; }
+
+.sbar { border-radius:10px; padding:10px 13px; font-size:13px; display:flex; align-items:center; gap:7px; line-height:1.5; margin-bottom:11px; }
+.sbar.hidden  { display:none; }
+.sbar.error   { background:rgba(239,68,68,.1);  border:1px solid rgba(239,68,68,.3);  color:var(--red); }
+.sbar.success { background:rgba(34,197,94,.1);  border:1px solid rgba(34,197,94,.3);  color:var(--green); }
+.sbar.warning { background:rgba(245,158,11,.1); border:1px solid rgba(245,158,11,.3); color:var(--amber); }
+.sbar.info    { background:rgba(59,130,246,.1); border:1px solid rgba(59,130,246,.3); color:var(--blue); }
+
+.btn { display:flex; align-items:center; justify-content:center; gap:8px; width:100%; padding:13px; border:none; border-radius:11px; font-family:'Sarabun',sans-serif; font-size:15px; font-weight:700; cursor:pointer; transition:all .2s; -webkit-appearance:none; }
+.btn:active   { transform:scale(.97); }
+.btn:disabled { opacity:.4; cursor:not-allowed; transform:none; }
+.btn-primary   { background:var(--amber); color:#000; box-shadow:0 4px 18px rgba(245,158,11,.32); }
+.btn-secondary { background:var(--surface2); color:var(--text); border:1px solid var(--border2); }
+.btn-row { display:flex; gap:8px; }
+.btn-row .btn-back { flex:0 0 auto; width:auto; padding:13px 17px; }
+
+.hidden { display:none !important; }
+
+/* hidden input สำหรับ file upload */
+#photo-file-input { display:none; }
+</style>
+</head>
+<body>
+
+<div class="ov" id="ov-load">
+  <div class="spinner"></div>
+  <div class="ov-title amber" id="load-title">กำลังโหลด...</div>
+  <div class="ov-sub" id="load-sub">กรุณารอสักครู่</div>
+</div>
+
+<div class="ov hidden" id="ov-block">
+  <div class="ov-icon block">🔒</div>
+  <div class="ov-title red">ไม่มีสิทธิ์เข้าใช้งาน</div>
+  <div class="ov-sub" id="ov-block-reason"></div>
+</div>
+
+<div class="ov hidden" id="ov-gps">
+  <div class="ov-icon block">📍</div>
+  <div class="ov-title red">อยู่นอกระยะที่กำหนด</div>
+  <div class="ov-sub">คุณอยู่ห่างจากจุดตรวจ</div>
+  <div class="ov-gps-dist" id="ov-gps-dist">— ม.</div>
+  <div class="ov-gps-bar"><div class="ov-gps-fill" id="ov-gps-fill" style="width:0%"></div></div>
+  <button class="btn btn-secondary" style="max-width:220px;margin-top:6px" onclick="retryGPS()">🔄 ตรวจสอบระยะใหม่</button>
+  <button class="btn btn-secondary" style="max-width:220px;opacity:.55;font-size:13px;margin-top:0" onclick="hideOv('ov-gps')">← กลับ</button>
+</div>
+
+<div class="ov hidden" id="ov-ok">
+  <div class="ov-icon ok">✅</div>
+  <div class="ov-title green">บันทึกสำเร็จ!</div>
+  <div class="ov-sub" id="ov-ok-msg"></div>
+  <button class="btn btn-primary"   style="max-width:280px;margin-top:6px" onclick="afterSuccess()">← กลับเลือกจุดตรวจ</button>
+  <button class="btn btn-secondary" style="max-width:280px" onclick="endTourManual()">🏁 จบรอบตรวจ</button>
+</div>
+
+<div class="ov hidden" id="ov-done">
+  <div class="ov-icon done">🏆</div>
+  <div class="ov-title amber">ตรวจรอบครบแล้ว!</div>
+  <div class="ov-sub" id="ov-done-msg"></div>
+  <button class="btn btn-secondary" style="max-width:280px;margin-top:6px" onclick="newTour()">🔄 เริ่มรอบใหม่</button>
+</div>
+
+<!-- hidden input สำหรับ file/camera upload -->
+<input type="file" id="photo-file-input" accept="image/*" capture="environment">
+
+<div id="main" class="hidden">
+  <div class="hdr">
+    <div class="hdr-badge">🛡️</div>
+    <div><div class="hdr-title">ตรวจรอบยาม</div><div class="hdr-sub" id="hdr-role">Guard Tour</div></div>
+    <div class="hdr-guard" id="hdr-name">—</div>
+  </div>
+
+  <div class="content">
+
+    <div id="sec-home">
+      <div class="tour-bar">
+        <div class="tb-icon">🗺️</div>
+        <div><div class="tb-label">รอบที่</div><div class="tb-val" id="tb-id">—</div></div>
+        <div class="tb-sep"></div>
+        <div><div class="tb-label">ตรวจแล้ว</div><div class="tb-val"><span id="tb-done">0</span>/<span id="tb-total">0</span></div></div>
+        <div class="tb-right"><div class="tb-label">เวลาเริ่ม</div><div class="tb-val" id="tb-start">—</div></div>
+      </div>
+      <div class="progress-wrap hidden" id="progress-wrap">
+        <div class="progress-label">📍 ความคืบหน้า</div>
+        <div class="dots" id="dots"></div>
+      </div>
+      <div class="card">
+        <div class="card-hdr">📋 จุดตรวจทั้งหมด <span style="margin-left:auto;font-size:11px;color:var(--amber);font-weight:600">แตะจุดไหนก็ได้</span></div>
+        <div class="card-body">
+          <div class="cp-list" id="cp-list"></div>
+          <button class="btn btn-primary" id="btn-start" onclick="startTour()">🚀 เริ่มรอบตรวจ</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="sec-check" class="hidden">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+        <button onclick="goBackHome()" style="background:var(--surface2);border:1px solid var(--border2);color:var(--text);border-radius:10px;padding:7px 14px;font-family:'Sarabun',sans-serif;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:6px">
+          ← รายชื่อจุดตรวจ
+        </button>
+        <div style="font-size:14px;font-weight:700;color:var(--amber)" id="sec-check-title">—</div>
+      </div>
+
+      <div class="sbar hidden" id="sbar1"></div>
+
+      <div class="gps-info hidden" id="gps-info">
+        <div class="gps-spin" id="gps-spin"></div>
+        <span id="gps-info-txt">กำลังตรวจสอบตำแหน่ง...</span>
+      </div>
+
+      <!-- Step 1: QR -->
+      <div class="card">
+        <div class="card-hdr">
+          📷 ขั้นตอนที่ 1 — สแกน QR จุดตรวจ
+          <div class="gps-badge na" id="gps-badge">📡 GPS</div>
+        </div>
+        <div class="card-body">
+          <div id="qr-idle" class="qr-idle qr-locked" onclick="tryStartQR()">
+            <div class="qr-idle-icon" id="qr-idle-icon">🔒</div>
+            <div class="qr-idle-title" id="qr-idle-title">รอ GPS ก่อนสแกน QR</div>
+            <div class="qr-idle-sub" id="qr-idle-sub">ระบบกำลังตรวจสอบตำแหน่ง GPS<br>ต้องอยู่ในระยะ 50 เมตรจากจุดตรวจ</div>
+          </div>
+          <div id="qr-scan" class="qr-area hidden">
+            <div id="reader"></div>
+            <div class="qr-overlay">
+              <div class="qr-frame"><span></span></div>
+              <div class="qr-line"></div>
+            </div>
+          </div>
+          <div id="qr-ok" class="qr-ok hidden">
+            <span style="font-size:26px">✅</span>
+            <div>
+              <div class="qr-ok-name" id="qr-cp-name">—</div>
+              <div class="qr-ok-sub"  id="qr-cp-id">—</div>
+            </div>
+            <div class="qr-rescan" onclick="rescanQR()">สแกนใหม่</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 2: Status -->
+      <div class="card">
+        <div class="card-hdr">🔍 ขั้นตอนที่ 2 — สถานะจุดตรวจ</div>
+        <div class="card-body">
+          <div class="status-grid">
+            <button class="status-btn" id="btn-normal" onclick="setStatus('normal')">
+              <span class="status-btn-icon">✅</span>
+              <span class="status-btn-label">ปกติ</span>
+              <span class="status-btn-sub">ไม่พบความผิดปกติ</span>
+            </button>
+            <button class="status-btn" id="btn-abnormal" onclick="setStatus('abnormal')">
+              <span class="status-btn-icon">⚠️</span>
+              <span class="status-btn-label">ผิดปกติ</span>
+              <span class="status-btn-sub">พบปัญหา / ชำรุด</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 3: Photo (NEW - บังคับ) -->
+      <div class="card">
+        <div class="card-hdr">
+          📸 ขั้นตอนที่ 3 — ถ่ายภาพหลักฐาน
+          <span class="photo-req-badge">บังคับ</span>
+        </div>
+        <div class="card-body">
+          <div class="photo-area">
+            <!-- ยังไม่มีรูป -->
+            <div id="photo-idle" class="photo-idle">
+              <div class="photo-idle-icon">📷</div>
+              <div class="photo-idle-title">ยังไม่มีภาพหลักฐาน</div>
+              <div class="photo-idle-sub">ถ่ายภาพจุดตรวจเพื่อส่งให้ Supervisor<br>ผ่าน LINE พร้อมรายงาน</div>
+            </div>
+            <!-- ปุ่มถ่ายภาพ -->
+            <div class="photo-btn-row" id="photo-btn-row">
+              <button class="photo-btn" id="photo-btn-camera" onclick="openCamera()">
+                <span class="pb-icon">📷</span>
+                <span>ถ่ายภาพ</span>
+              </button>
+              <button class="photo-btn" id="photo-btn-gallery" onclick="openGallery()">
+                <span class="pb-icon">🖼️</span>
+                <span>เลือกจากคลัง</span>
+              </button>
+            </div>
+            <!-- แสดง Preview หลังถ่าย -->
+            <div id="photo-preview" class="photo-thumb hidden">
+              <img id="photo-img" src="" alt="ภาพหลักฐาน">
+              <span class="photo-thumb-badge">✅ มีภาพแล้ว</span>
+              <button class="photo-retake" onclick="retakePhoto()">📷 ถ่ายใหม่</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 4: Notes -->
+      <div class="card">
+        <div class="card-hdr">📝 ขั้นตอนที่ 4 — หมายเหตุ</div>
+        <div class="card-body">
+          <div class="field">
+            <label>หมายเหตุ <span id="notes-req" class="hidden">*บังคับเมื่อผิดปกติ</span></label>
+            <textarea id="f-notes" placeholder="เว้นว่างได้ถ้าไม่มีอะไรพิเศษ" oninput="checkReady()"></textarea>
+          </div>
+          <button class="btn btn-primary" id="btn-confirm" onclick="goConfirm()" disabled>
+            ➡️ ตรวจสอบก่อนบันทึก
+          </button>
+          <div id="confirm-hint" style="display:none;font-size:12px;color:var(--muted);text-align:center;margin-top:4px;padding:6px 10px;background:var(--surface2);border-radius:8px;border:1px solid var(--border2);"></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="sec-confirm" class="hidden">
+      <div class="sbar hidden" id="sbar2"></div>
+      <div class="confirm-wrap">
+        <div class="confirm-hdr">🛡️ ยืนยันการตรวจจุด</div>
+        <div class="confirm-row"><div class="confirm-key">จุดตรวจ</div><div class="confirm-val" id="c-name">—</div></div>
+        <div class="confirm-row"><div class="confirm-key">รหัส</div><div class="confirm-val mono" id="c-id">—</div></div>
+        <div class="confirm-row"><div class="confirm-key">สถานะ</div><div class="confirm-val" id="c-status">—</div></div>
+        <div class="confirm-row"><div class="confirm-key">หมายเหตุ</div><div class="confirm-val" id="c-notes">—</div></div>
+        <div class="confirm-row"><div class="confirm-key">ภาพ</div>
+          <div class="confirm-val">
+            <img id="c-photo" class="confirm-photo hidden" src="" alt="ภาพหลักฐาน">
+            <span id="c-photo-none" style="color:var(--red);font-size:12px">ยังไม่มีภาพ</span>
+          </div>
+        </div>
+        <div class="confirm-row"><div class="confirm-key">GPS</div><div class="confirm-val mono green" id="c-gps">—</div></div>
+        <div class="confirm-row"><div class="confirm-key">เวลา</div><div class="confirm-val mono" id="c-time">—</div></div>
+        <div class="confirm-row"><div class="confirm-key">ยาม</div><div class="confirm-val" id="c-guard">—</div></div>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-secondary btn-back" onclick="backToCheck()">← แก้ไข</button>
+        <button class="btn btn-primary" id="btn-submit" onclick="submitCheck()">📦 บันทึกการตรวจ</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ════════════════════════════════════════════════════
+// CONFIG
+// ════════════════════════════════════════════════════
+const GAS_URL      = 'https://script.google.com/macros/s/AKfycbweOsHINJk_DSPsueg-YEFaDUUahLcMqoGp1TzJJ6uS_ACCuKorrm38Ww21NPB4TV94kQ/exec';
+const LIFF_ID      = '2009191893-YFzSE10x';
+const GPS_RADIUS_M = 50;
+const OFFLINE_QUEUE_KEY = 'guardtour_offline_queue';
+
+const SHIFTS = [
+  { id: 1,  label: 'ผลัดที่ 1',  start: '22:00', end: '00:00' },
+  { id: 2,  label: 'ผลัดที่ 2',  start: '00:00', end: '02:00' },
+  { id: 3,  label: 'ผลัดที่ 3',  start: '02:00', end: '04:00' },
+  { id: 4,  label: 'ผลัดที่ 4',  start: '04:00', end: '06:00' },
+  { id: 5,  label: 'ผลัดที่ 5',  start: '06:00', end: '08:00' },
+  { id: 6,  label: 'ผลัดที่ 6',  start: '08:00', end: '10:00' },
+  { id: 7,  label: 'ผลัดที่ 7',  start: '10:00', end: '12:00' },
+  { id: 8,  label: 'ผลัดที่ 8',  start: '12:00', end: '14:00' },
+  { id: 9,  label: 'ผลัดที่ 9',  start: '14:00', end: '16:00' },
+  { id: 10, label: 'ผลัดที่ 10', start: '16:00', end: '18:00' },
+  { id: 11, label: 'ผลัดที่ 11', start: '18:00', end: '20:00' },
+  { id: 12, label: 'ผลัดที่ 12', start: '20:00', end: '22:00' },
+];
+
+function detectShift(d) {
+  const h = d.getHours(), m = d.getMinutes();
+  const startMin = h * 60 + m;
+  for (const sh of SHIFTS) {
+    const [sh_h, sh_m] = sh.start.split(':').map(Number);
+    const [eh, em]     = sh.end.split(':').map(Number);
+    let sMin = sh_h * 60 + sh_m;
+    let eMin = eh   * 60 + em;
+    if (eMin <= sMin) eMin += 24 * 60;
+    const adj = startMin + (startMin < sMin && sMin >= 12 * 60 ? 24 * 60 : 0);
+    if (adj >= sMin && adj < eMin) return sh;
+  }
+  return null;
+}
+
+let CHECKPOINTS = [];
+
+// ════════════════════════════════════════════════════
+// STATE
+// ════════════════════════════════════════════════════
+const S = {
+  userId:null, userName:null, adminType:null,
+  tourId:null, tourStart:null, shiftId:null, checked:{},
+  cpId:null, cpName:null,
+  status:null,
+  gpsOk:false, gpsLat:null, gpsLng:null, gpsDist:null,
+  // [v2.6] Photo state
+  photoDataUrl:   null,   // base64 dataURL สำหรับ preview
+  photoBase64:    null,   // base64 pure (ไม่มี prefix) สำหรับส่ง API
+  photoMime:      'image/jpeg',
+  submitting: false,
+};
+let qrScanner   = null;
+let gpsWatchId  = null;
+let gpsTargetCp = null;
+
+// ════════════════════════════════════════════════════
+// INIT
+// ════════════════════════════════════════════════════
+async function init() {
+  try {
+    setLoadMsg('กำลังเริ่มต้น LIFF...');
+    await liff.init({ liffId: LIFF_ID });
+    if (!liff.isLoggedIn()) { liff.login(); return; }
+
+    setLoadMsg('กำลังโหลดข้อมูลผู้ใช้...');
+    const profile = await liff.getProfile();
+    S.userId   = profile.userId;
+    S.userName = profile.displayName;
+
+    setLoadMsg('กำลังตรวจสอบสิทธิ์...');
+    const [authRes, cpRes] = await Promise.all([
+      apiFetch(`${GAS_URL}?action=check_admin&userId=${encodeURIComponent(S.userId)}`),
+      apiFetch(`${GAS_URL}?action=get_checkpoints`),
+    ]);
+
+    if (!authRes.isAdmin) { showBlock(authRes.reason || 'ไม่มีสิทธิ์เข้าใช้งาน'); return; }
+
+    S.userName  = authRes.userName  || S.userName;
+    S.adminType = authRes.adminType || 'GUARD';
+
+    if (!cpRes || cpRes.status !== 'ok' || !cpRes.checkpoints.length) {
+      showBlock('ไม่พบข้อมูลจุดตรวจในระบบ\nกรุณาเพิ่มข้อมูลใน Google Sheets (แท็บ Checkpoints)');
+      return;
+    }
+
+    CHECKPOINTS = cpRes.checkpoints;
+    document.getElementById('hdr-name').textContent = S.userName;
+    document.getElementById('hdr-role').textContent =
+      S.adminType === 'SUPER_ADMIN' ? '👑 Supervisor' : '🛡️ ยาม';
+    document.getElementById('tb-total').textContent = CHECKPOINTS.length;
+
+    // ผูก event สำหรับ file input
+    document.getElementById('photo-file-input').addEventListener('change', onPhotoFileSelected);
+
+    hideOv('ov-load');
+    show('main');
+    renderHome();
+
+    // Offline queue — แสดง banner ถ้ามี queue ค้างอยู่ และ auto-sync ถ้าออนไลน์
+    updateOfflineBanner();
+    if (navigator.onLine && offlineCount() > 0) {
+      setTimeout(syncOfflineQueue, 2000);  // หน่วง 2 วิให้ UI โหลดเสร็จก่อน
+    }
+  } catch(e) {
+    showBlock('เกิดข้อผิดพลาด:\n' + e.message + '\n\nลองรีเฟรชหน้าใหม่');
+  }
+}
+
+async function apiFetch(url, opts = {}) {
+  const ctrl = new AbortController();
+  const tid  = setTimeout(() => ctrl.abort(), 30000);
+  try {
+    const res  = await fetch(url, { redirect: 'follow', signal: ctrl.signal, ...opts });
+    const text = await res.text();
+    clearTimeout(tid);
+    try { return JSON.parse(text); }
+    catch(_) { throw new Error('ตอบกลับไม่ใช่ JSON: ' + text.substring(0, 80)); }
+  } catch(e) {
+    clearTimeout(tid);
+    if (e.name === 'AbortError') throw new Error('หมดเวลาเชื่อมต่อ');
+    throw e;
+  }
+}
+
+async function gasGetCall(params, timeoutMs = 40000) {
+  const url  = GAS_URL + '?' + new URLSearchParams(params).toString();
+  return apiFetch(url, {});
+}
+
+// [v2.6 FIX] GAS Web App redirect POST(application/json) body → ใช้ multipart/form-data แทน
+async function gasPostCall(bodyObj, timeoutMs = 60000) {
+  const ctrl = new AbortController();
+  const tid  = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    const form = new FormData();
+    for (const [k, v] of Object.entries(bodyObj)) {
+      form.append(k, v == null ? '' : String(v));
+    }
+    const res  = await fetch(GAS_URL, {
+      method:   'POST',
+      redirect: 'follow',
+      signal:   ctrl.signal,
+      body:     form,
+    });
+    const text = await res.text();
+    clearTimeout(tid);
+    try { return JSON.parse(text); }
+    catch(_) { throw new Error('ตอบกลับไม่ใช่ JSON: ' + text.substring(0, 80)); }
+  } catch(e) {
+    clearTimeout(tid);
+    if (e.name === 'AbortError') throw new Error('หมดเวลาเชื่อมต่อ (upload)');
+    throw e;
+  }
+}
+
+// ════════════════════════════════════════════════════
+// OFFLINE QUEUE — บันทึก check-in ไว้เมื่อไม่มีสัญญาณ
+// ════════════════════════════════════════════════════
+function offlineQueue() {
+  try { return JSON.parse(localStorage.getItem(OFFLINE_QUEUE_KEY) || '[]'); }
+  catch(_) { return []; }
+}
+function offlineSave(queue) {
+  try { localStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(queue)); }
+  catch(_) {}
+}
+function offlineEnqueue(item) {
+  const q = offlineQueue();
+  q.push({ ...item, _queuedAt: new Date().toISOString() });
+  offlineSave(q);
+  Logger.log && Logger.log('offline enqueue: ' + item.checkpointId);
+}
+function offlineCount() { return offlineQueue().length; }
+
+/** แสดง/ซ่อน banner แจ้งจำนวน queue */
+function updateOfflineBanner() {
+  const n = offlineCount();
+  let banner = document.getElementById('offline-banner');
+  if (!banner) {
+    banner = document.createElement('div');
+    banner.id = 'offline-banner';
+    banner.style.cssText =
+      'position:fixed;bottom:0;left:0;right:0;z-index:9998;padding:10px 16px;' +
+      'background:rgba(245,158,11,.95);color:#000;font-family:Sarabun,sans-serif;' +
+      'font-size:13px;font-weight:700;display:flex;align-items:center;gap:10px;' +
+      'backdrop-filter:blur(4px);border-top:2px solid rgba(0,0,0,.15)';
+    document.body.appendChild(banner);
+  }
+  if (n === 0) { banner.style.display = 'none'; return; }
+  banner.style.display = 'flex';
+  banner.innerHTML =
+    `<span>📴 มี ${n} check-in รอส่ง (ออฟไลน์)</span>` +
+    `<button onclick="syncOfflineQueue()" style="margin-left:auto;background:#000;color:#f59e0b;` +
+    `border:none;border-radius:8px;padding:5px 12px;font-family:Sarabun,sans-serif;` +
+    `font-size:12px;font-weight:700;cursor:pointer">🔄 ส่งตอนนี้</button>`;
+}
+
+/** ลอง sync queue ที่ค้างอยู่ */
+async function syncOfflineQueue() {
+  const q = offlineQueue();
+  if (q.length === 0) return;
+  let sent = 0, failed = 0;
+  const remaining = [];
+  for (const item of q) {
+    try {
+      const res = await gasGetCall({
+        action:         'guard_checkin',
+        tourId:         item.tourId,
+        userId:         item.userId,
+        guardName:      item.guardName,
+        checkpointId:   item.checkpointId,
+        checkpointName: item.checkpointName,
+        status:         item.status,
+        notes:          item.notes || '',
+        timestamp:      item.timestamp,
+        tourStartTime:  item.tourStartTime || '',
+        gpsLat:         item.gpsLat || '',
+        gpsLng:         item.gpsLng || '',
+      });
+      if (res && res.status === 'ok') { sent++; }
+      else { remaining.push(item); failed++; }
+    } catch(_) { remaining.push(item); failed++; }
+  }
+  offlineSave(remaining);
+  updateOfflineBanner();
+  if (sent > 0) setSbar('sbar1', 'success', `✅ ส่ง ${sent} check-in จาก queue สำเร็จ${failed > 0 ? ` (ยังค้าง ${failed})` : ''}`);
+  else if (failed > 0) setSbar('sbar1', 'warning', `⚠️ ยังส่งไม่ได้ ${failed} รายการ จะลองใหม่เมื่อมีสัญญาณ`);
+}
+
+/** ตรวจสอบสัญญาณ — auto sync เมื่อกลับมา online */
+window.addEventListener('online', () => {
+  updateOfflineBanner();
+  if (offlineCount() > 0) syncOfflineQueue();
+});
+window.addEventListener('offline', updateOfflineBanner);
+function compressImage(dataUrl, maxPx = 800, quality = 0.70) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      let w = img.width, h = img.height;
+      if (w > maxPx || h > maxPx) {
+        if (w > h) { h = Math.round(h * maxPx / w); w = maxPx; }
+        else       { w = Math.round(w * maxPx / h); h = maxPx; }
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      const out = canvas.toDataURL('image/jpeg', quality);
+      resolve({ base64: out.split(',')[1], mime: 'image/jpeg', dataUrl: out });
+    };
+    img.onerror = () => resolve(null);
+    img.src = dataUrl;
+  });
+}
+
+function setLoadMsg(msg) {
+  document.getElementById('load-sub').textContent = msg;
+}
+
+// ════════════════════════════════════════════════════
+// HOME
+// ════════════════════════════════════════════════════
+function renderHome() {
+  const list = document.getElementById('cp-list');
+  list.innerHTML = '';
+  CHECKPOINTS.forEach((cp, i) => {
+    const rec      = S.checked[cp.id];
+    const isDone   = !!rec;
+    const isAbnorm = rec && rec.status === 'abnormal';
+    const cls  = isDone ? (isAbnorm ? 'abnormal' : 'done') : 'pending';
+    const icon = isDone ? (isAbnorm ? '⚠️' : '✅') : '▶';
+    const sub  = isDone
+      ? `ตรวจแล้ว · ${isAbnorm ? 'ผิดปกติ' : 'ปกติ'}`
+      : (cp.lat ? cp.location : cp.location + ' · ⛔ ยังไม่มีพิกัด GPS');
+    const hint = isDone
+      ? '<div class="cp-tap-hint">แตะเพื่อตรวจซ้ำ</div>'
+      : '<div class="cp-tap-hint">แตะเพื่อตรวจ →</div>';
+
+    const div = document.createElement('div');
+    div.className = `cp-item ${cls}`;
+    div.innerHTML = `
+      <div class="cp-num">${String(i+1).padStart(2,'0')}</div>
+      <div style="flex:1;min-width:0">
+        <div class="cp-name">${cp.name}</div>
+        <div class="cp-loc">${sub}</div>
+        ${S.tourId ? hint : ''}
+      </div>
+      <div class="cp-status">${icon}</div>`;
+    if (S.tourId) div.addEventListener('click', () => openCheckFor(cp));
+    list.appendChild(div);
+  });
+
+  const done = Object.keys(S.checked).length;
+  document.getElementById('tb-done').textContent  = done;
+  document.getElementById('tb-total').textContent = CHECKPOINTS.length;
+  document.getElementById('tb-id').textContent    = S.tourId || '—';
+  document.getElementById('tb-start').textContent = S.tourStart
+    ? new Date(S.tourStart).toLocaleTimeString('th-TH', { hour:'2-digit', minute:'2-digit' }) : '—';
+
+  if (S.tourId) {
+    show('progress-wrap');
+    document.getElementById('dots').innerHTML = CHECKPOINTS.map(cp => {
+      const r = S.checked[cp.id];
+      return `<div class="dot ${r ? (r.status==='abnormal'?'abnormal':'done') : ''}" title="${cp.name}"></div>`;
+    }).join('');
+  }
+
+  const btn       = document.getElementById('btn-start');
+  btn.disabled    = false;
+  const remaining = CHECKPOINTS.filter(cp => !S.checked[cp.id]).length;
+  if (!S.tourId) {
+    btn.textContent = '🚀 เริ่มรอบตรวจ';
+    btn.onclick     = startTour;
+  } else if (remaining > 0) {
+    btn.textContent = `📍 ตรวจจุดถัดไปอัตโนมัติ (${remaining} จุด)`;
+    btn.onclick     = nextCheckpoint;
+  } else {
+    btn.textContent = '🏁 จบรอบตรวจ';
+    btn.onclick     = triggerTourComplete;
+  }
+  showSec('home');
+}
+
+function startTour() {
+  const now   = new Date();
+  S.tourId    = 'TOUR-' + Date.now().toString(36).toUpperCase();
+  S.tourStart = now.toISOString();
+  S.checked   = {};
+  const sh    = detectShift(now);
+  S.shiftId   = sh ? sh.id : null;
+  renderHome();
+}
+
+function nextCheckpoint() {
+  const next = CHECKPOINTS.find(cp => !S.checked[cp.id]);
+  if (!next) { triggerTourComplete(); return; }
+  openCheckFor(next);
+}
+
+function newTour() {
+  S.tourId = S.tourStart = null;
+  S.checked = {};
+  hideOv('ov-done');
+  renderHome();
+}
+
+// ════════════════════════════════════════════════════
+// CHECK SECTION
+// ════════════════════════════════════════════════════
+function openCheckFor(cp) {
+  resetCheck();
+  S.cpId   = cp.id;
+  S.cpName = cp.name;
+  const idx = CHECKPOINTS.findIndex(c => c.id === cp.id);
+  document.getElementById('sec-check-title').textContent =
+    `จุดที่ ${String(idx+1).padStart(2,'0')} — ${cp.name}`;
+  clearSbar('sbar1');
+  clearSbar('sbar2');
+  showSec('check');
+  startGPSWatch(cp);
+}
+
+function goBackHome() {
+  stopQR();
+  stopGPS();
+  renderHome();
+}
+
+function resetCheck() {
+  S.cpId = S.cpName = S.status = null;
+  S.gpsOk = false; S.gpsLat = S.gpsLng = S.gpsDist = null;
+  // Reset photo
+  S.photoDataUrl = S.photoBase64 = null;
+  S.photoMime = 'image/jpeg';
+  stopQR(); stopGPS();
+  show('qr-idle'); hide('qr-scan'); hide('qr-ok');
+  updateQRLockState(); // reset เป็น locked เสมอเมื่อเปิดจุดใหม่
+  document.getElementById('btn-normal').className   = 'status-btn';
+  document.getElementById('btn-abnormal').className = 'status-btn';
+  document.getElementById('f-notes').value = '';
+  document.getElementById('f-notes').classList.remove('required');
+  hide('notes-req');
+  hide('gps-info');
+  document.getElementById('btn-confirm').disabled = true;
+  const hint = document.getElementById('confirm-hint');
+  if (hint) { hint.textContent = ''; hint.style.display = 'none'; }
+  setGPSBadge('na', '📡 GPS');
+  // Reset photo UI
+  show('photo-idle');
+  hide('photo-preview');
+  document.getElementById('photo-img').src = '';
+  // reset file input
+  document.getElementById('photo-file-input').value = '';
+}
+
+// ════════════════════════════════════════════════════
+// GPS
+// ════════════════════════════════════════════════════
+function haversineM(lat1, lng1, lat2, lng2) {
+  const R = 6371000;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = Math.sin(dLat/2)**2 +
+    Math.cos(lat1 * Math.PI/180) * Math.cos(lat2 * Math.PI/180) * Math.sin(dLng/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+function startGPSWatch(cp) {
+  gpsTargetCp = cp;
+  if (!navigator.geolocation) {
+    setGPSBadge('na', '📡 ไม่รองรับ');
+    showGPSInfo('nocoord', '⚠️ เบราว์เซอร์นี้ไม่รองรับ GPS');
+    return;
+  }
+  if (!cp.lat || !cp.lng) {
+    // [v2.7] บังคับทุกจุด — ถ้าไม่มีพิกัดให้บล็อกทั้งหมด
+    S.gpsOk = false;
+    setGPSBadge('na', '📡 ไม่มีพิกัด');
+    showGPSInfo('nocoord', '⛔ จุดนี้ยังไม่ได้ตั้งพิกัด GPS — กรุณาแจ้ง Admin ตั้งพิกัดใน Google Sheets ก่อนใช้งาน');
+    updateQRLockState(); // QR ยังล็อคอยู่
+    return;
+  }
+  setGPSBadge('checking', '📡 กำลังหา...');
+  showGPSInfo('checking', 'กำลังตรวจสอบตำแหน่ง GPS...');
+  gpsWatchId = navigator.geolocation.watchPosition(
+    pos => onGPSUpdate(pos, cp),
+    err => onGPSError(err),
+    { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 }
+  );
+}
+
+function stopGPS() {
+  if (gpsWatchId !== null) {
+    navigator.geolocation.clearWatch(gpsWatchId);
+    gpsWatchId = null;
+  }
+}
+
+function onGPSUpdate(pos, cp) {
+  const lat  = pos.coords.latitude;
+  const lng  = pos.coords.longitude;
+  S.gpsLat   = lat;
+  S.gpsLng   = lng;
+  const dist = Math.round(haversineM(lat, lng, cp.lat, cp.lng));
+  S.gpsDist  = dist;
+  if (dist <= GPS_RADIUS_M) {
+    S.gpsOk = true;
+    setGPSBadge('ok', `✅ ${dist} ม.`);
+    showGPSInfo('ok', `✅ อยู่ในระยะ ${dist} เมตร จากจุดตรวจ`);
+    updateQRLockState();
+    checkReady();   // ปลดล็อกปุ่มบันทึกด้วยเมื่อ GPS ผ่าน
+    stopGPS();
+  } else {
+    S.gpsOk = false;
+    setGPSBadge('fail', `❌ ${dist} ม.`);
+    showGPSInfo('fail', `❌ ห่างจากจุดตรวจ ${dist} เมตร (ต้องอยู่ใน ${GPS_RADIUS_M} ม.)`);
+    updateQRLockState();
+    checkReady();   // อัปเดต hint
+  }
+}
+
+function onGPSError(err) {
+  const msgs = {1:'ปฏิเสธการเข้าถึง GPS', 2:'ไม่สามารถหาตำแหน่งได้', 3:'หมดเวลา GPS'};
+  setGPSBadge('na', '📡 Error');
+  showGPSInfo('nocoord', `⚠️ GPS: ${msgs[err.code] || err.message}`);
+}
+
+function retryGPS() {
+  hideOv('ov-gps');
+  if (gpsTargetCp) { stopGPS(); startGPSWatch(gpsTargetCp); }
+}
+
+function setGPSBadge(type, text) {
+  const b = document.getElementById('gps-badge');
+  b.className   = 'gps-badge ' + type;
+  b.textContent = text;
+}
+
+function showGPSInfo(type, text) {
+  const el   = document.getElementById('gps-info');
+  const spin = document.getElementById('gps-spin');
+  el.className = 'gps-info ' + type;
+  spin.style.display = (type === 'checking') ? 'block' : 'none';
+  document.getElementById('gps-info-txt').textContent = text;
+}
+
+// ════════════════════════════════════════════════════
+// QR SCANNER
+// ════════════════════════════════════════════════════
+// [v2.7] ตรวจ GPS lock ก่อนสแกน QR
+function tryStartQR() {
+  const cp = gpsTargetCp;
+  // จุดไม่มีพิกัด → บล็อก บังคับตั้งพิกัดก่อน
+  if (!cp || !cp.lat || !cp.lng) {
+    setSbar('sbar1', 'error', '⛔ จุดนี้ยังไม่มีพิกัด GPS — กรุณาแจ้ง Admin ตั้งพิกัดใน Google Sheets ก่อนใช้งาน');
+    return;
+  }
+  // GPS ต้องผ่านก่อน
+  if (!S.gpsOk) {
+    setSbar('sbar1', 'error', '🔒 ต้องอยู่ในระยะ ' + GPS_RADIUS_M + ' เมตรจากจุดตรวจก่อนจึงจะสแกน QR ได้ (ตอนนี้ห่าง ' + (S.gpsDist !== null ? S.gpsDist + ' เมตร' : '— เมตร') + ')');
+    return;
+  }
+  startQR();
+}
+
+/** อัปเดต UI ของ qr-idle ตาม GPS state */
+function updateQRLockState() {
+  const cp      = gpsTargetCp;
+  const noCoord = !cp || !cp.lat || !cp.lng;
+  const idle    = document.getElementById('qr-idle');
+  const icon    = document.getElementById('qr-idle-icon');
+  const title   = document.getElementById('qr-idle-title');
+  const sub     = document.getElementById('qr-idle-sub');
+  if (!idle) return;
+
+  if (S.gpsOk) {
+    // GPS ผ่าน → ปลดล็อก QR
+    idle.classList.remove('qr-locked');
+    idle.classList.add('qr-ready');
+    icon.textContent  = '⬛';
+    title.textContent = 'แตะเพื่อสแกน QR';
+    sub.textContent   = 'GPS ผ่านแล้ว ✅ สแกน QR Code ที่จุดตรวจได้เลย';
+  } else if (noCoord) {
+    // ไม่มีพิกัด → ล็อก พร้อมแจ้ง Admin
+    idle.classList.add('qr-locked');
+    idle.classList.remove('qr-ready');
+    icon.textContent  = '⛔';
+    title.textContent = 'จุดนี้ยังไม่มีพิกัด GPS';
+    sub.textContent   = 'กรุณาแจ้ง Admin ตั้งพิกัดใน Google Sheets ก่อนใช้งาน';
+  } else {
+    // GPS ยังไม่ผ่าน → ล็อก
+    idle.classList.add('qr-locked');
+    idle.classList.remove('qr-ready');
+    icon.textContent  = '🔒';
+    title.textContent = 'รอ GPS ก่อนสแกน QR';
+    sub.textContent   = 'ต้องอยู่ในระยะ ' + GPS_RADIUS_M + ' เมตรจากจุดตรวจ';
+  }
+}
+
+function startQR() {
+  stopQR().then(() => {
+    hide('qr-idle');
+    show('qr-scan');
+    qrScanner = new Html5Qrcode('reader');
+    qrScanner.start(
+      { facingMode: 'environment' },
+      { fps: 10, qrbox: { width: 185, height: 185 } },
+      onQRSuccess,
+      () => {}
+    ).catch(err => {
+      setSbar('sbar1', 'error', '❌ เปิดกล้องไม่ได้: ' + (err.message || err));
+      show('qr-idle');
+      hide('qr-scan');
+      qrScanner = null;
+    });
+  });
+}
+
+function stopQR() {
+  if (!qrScanner) return Promise.resolve();
+  const sc = qrScanner;
+  qrScanner = null;
+  return sc.stop().catch(() => {});
+}
+
+function onQRSuccess(decoded) {
+  stopQR().then(() => {
+    hide('qr-scan');
+    const raw = decoded.trim();
+    const cp  = CHECKPOINTS.find(c => c.id === raw);
+    if (cp) {
+      S.cpId   = cp.id;
+      S.cpName = cp.name;
+      document.getElementById('qr-cp-name').textContent = cp.name;
+      document.getElementById('qr-cp-id').textContent   = cp.id + ' · ' + cp.location;
+      clearSbar('sbar1');
+      stopGPS();
+      startGPSWatch(cp);
+    } else {
+      S.cpId   = raw;
+      S.cpName = 'จุดตรวจ: ' + raw;
+      document.getElementById('qr-cp-name').textContent = S.cpName;
+      document.getElementById('qr-cp-id').textContent   = raw;
+      setSbar('sbar1', 'warning', '⚠️ QR Code ไม่ตรงกับรายการในระบบ — บันทึกได้แต่ตรวจ GPS ไม่ได้');
+    }
+    show('qr-ok');
+    checkReady();
+  });
+}
+
+function rescanQR() {
+  S.cpId = S.cpName = null;
+  hide('qr-ok');
+  clearSbar('sbar1');
+  checkReady();
+  startQR();
+}
+
+// ════════════════════════════════════════════════════
+// [v2.6] PHOTO CAPTURE
+// ════════════════════════════════════════════════════
+function openCamera() {
+  const inp = document.getElementById('photo-file-input');
+  inp.setAttribute('capture', 'environment');
+  inp.accept = 'image/*';
+  inp.click();
+}
+
+function openGallery() {
+  const inp = document.getElementById('photo-file-input');
+  inp.removeAttribute('capture');
+  inp.accept = 'image/*';
+  inp.click();
+}
+
+function onPhotoFileSelected(e) {
+  const file = e.target.files && e.target.files[0];
+  if (!file) return;
+
+  S.photoMime = file.type || 'image/jpeg';
+
+  const reader = new FileReader();
+  reader.onload = function(ev) {
+    const dataUrl = ev.target.result;
+    S.photoDataUrl = dataUrl;
+    // แยก base64 ออกจาก dataURL prefix
+    S.photoBase64 = dataUrl.split(',')[1] || '';
+
+    // แสดง preview
+    document.getElementById('photo-img').src = dataUrl;
+    hide('photo-idle');
+    show('photo-preview');
+    checkReady();
+  };
+  reader.readAsDataURL(file);
+
+  // reset value เพื่อให้เลือกไฟล์เดิมซ้ำได้
+  e.target.value = '';
+}
+
+function retakePhoto() {
+  S.photoDataUrl = S.photoBase64 = null;
+  hide('photo-preview');
+  show('photo-idle');
+  document.getElementById('photo-img').src = '';
+  checkReady();
+}
+
+// ════════════════════════════════════════════════════
+// STATUS & VALIDATION
+// ════════════════════════════════════════════════════
+function setStatus(val) {
+  S.status = val;
+  document.getElementById('btn-normal').className   = val==='normal'   ? 'status-btn sel-normal'   : 'status-btn';
+  document.getElementById('btn-abnormal').className = val==='abnormal' ? 'status-btn sel-abnormal' : 'status-btn';
+  const n = document.getElementById('f-notes');
+  if (val === 'abnormal') {
+    show('notes-req');
+    n.placeholder = 'กรุณาระบุรายละเอียดที่พบ *บังคับ';
+    n.classList.add('required');
+  } else {
+    hide('notes-req');
+    n.placeholder = 'เว้นว่างได้ถ้าไม่มีอะไรพิเศษ';
+    n.classList.remove('required');
+  }
+  checkReady();
+}
+
+function checkReady() {
+  const notes   = document.getElementById('f-notes').value.trim();
+  const cp      = gpsTargetCp;
+  const needGps = cp && cp.lat && cp.lng;   // จุดที่มีพิกัด → ต้อง GPS ผ่าน
+  const gpsPass = !needGps || S.gpsOk;      // ไม่มีพิกัด → ผ่านอัตโนมัติ (แต่จะบล็อกจาก startGPSWatch แล้ว)
+
+  const ok = !!S.cpId &&          // QR ผ่านแล้ว
+             gpsPass &&            // GPS ผ่านแล้ว (หรือจุดไม่มีพิกัด)
+             !!S.status &&         // เลือกสถานะแล้ว
+             !!S.photoBase64 &&    // มีรูปแล้ว
+             (S.status !== 'abnormal' || notes.length >= 3); // ถ้าผิดปกติต้องมีหมายเหตุ
+
+  const btn = document.getElementById('btn-confirm');
+  btn.disabled = !ok;
+
+  // แสดง hint ว่าติดขั้นตอนไหน
+  const hint = document.getElementById('confirm-hint');
+  if (hint) {
+    if (!S.cpId)        hint.textContent = '⏳ รอสแกน QR จุดตรวจก่อน';
+    else if (!gpsPass)  hint.textContent = '🔒 รอ GPS ผ่านก่อน (ห่าง ' + (S.gpsDist !== null ? S.gpsDist + ' ม.' : '—') + ')';
+    else if (!S.status) hint.textContent = '⏳ รอเลือกสถานะจุดตรวจ';
+    else if (!S.photoBase64) hint.textContent = '⏳ รอถ่ายภาพหลักฐาน';
+    else if (S.status === 'abnormal' && notes.length < 3) hint.textContent = '⏳ รอกรอกหมายเหตุ';
+    else hint.textContent = '';
+    hint.style.display = (!ok && hint.textContent) ? 'block' : 'none';
+  }
+}
+
+// ════════════════════════════════════════════════════
+// CONFIRM
+// ════════════════════════════════════════════════════
+function goConfirm() {
+  const notes = document.getElementById('f-notes').value.trim();
+  document.getElementById('c-name').textContent  = S.cpName;
+  document.getElementById('c-id').textContent    = S.cpId;
+  document.getElementById('c-notes').textContent = notes || '—';
+  document.getElementById('c-time').textContent  = new Date().toLocaleString('th-TH');
+  document.getElementById('c-guard').textContent = S.userName;
+
+  const sEl = document.getElementById('c-status');
+  sEl.textContent = S.status === 'normal' ? '✅ ปกติ' : '⚠️ ผิดปกติ';
+  sEl.className   = 'confirm-val ' + (S.status === 'normal' ? 'green' : 'red');
+
+  const gpsStr = S.gpsLat
+    ? `${S.gpsLat.toFixed(6)}, ${S.gpsLng.toFixed(6)}`
+      + (S.gpsDist !== null ? ` (${S.gpsDist}ม.)` : '')
+    : 'ไม่มีพิกัด / ข้าม GPS';
+  document.getElementById('c-gps').textContent = gpsStr;
+
+  // แสดงรูปใน confirm
+  if (S.photoDataUrl) {
+    document.getElementById('c-photo').src = S.photoDataUrl;
+    show('c-photo');
+    hide('c-photo-none');
+  } else {
+    hide('c-photo');
+    show('c-photo-none');
+  }
+
+  const btn = document.getElementById('btn-submit');
+  btn.disabled    = false;
+  btn.textContent = '📦 บันทึกการตรวจ';
+  S.submitting    = false;
+
+  showSec('confirm');
+}
+
+function backToCheck() { showSec('check'); }
+
+// ════════════════════════════════════════════════════
+// SUBMIT — v2.6: 1) checkin → 2) upload+notify photo
+// ════════════════════════════════════════════════════
+async function submitCheck() {
+  if (S.submitting) return;
+  S.submitting = true;
+
+  const btn = document.getElementById('btn-submit');
+  btn.disabled    = true;
+  btn.textContent = '⏳ กำลังบันทึก...';
+  clearSbar('sbar2');
+
+  const notes     = document.getElementById('f-notes').value.trim();
+  const timestamp = new Date().toISOString();
+
+  // payload สำหรับ checkin
+  const checkinPayload = {
+    action:         'guard_checkin',
+    tourId:         S.tourId,
+    userId:         S.userId,
+    guardName:      S.userName,
+    checkpointId:   S.cpId,
+    checkpointName: S.cpName,
+    status:         S.status,
+    notes,
+    timestamp,
+    tourStartTime:  S.tourStart || '',
+    gpsLat:         S.gpsLat != null ? String(S.gpsLat) : '',
+    gpsLng:         S.gpsLng != null ? String(S.gpsLng) : '',
+  };
+
+  try {
+    // ── Step 1: บันทึก checkin ──────────────────────────────────────────────
+    const res = await gasGetCall(checkinPayload);
+    if (!res || res.status !== 'ok') throw new Error(res?.message || 'บันทึกข้อมูลไม่สำเร็จ');
+
+    stopGPS();
+    S.checked[S.cpId] = { status: S.status, notes, timestamp };
+
+    // ── Step 2: compress + อัปโหลดรูป ──────────────────────────────────────
+    btn.textContent = '📤 กำลังส่งรูปภาพ...';
+    if (S.photoBase64) {
+      try {
+        const compressed = await compressImage(S.photoDataUrl);
+        const b64  = compressed ? compressed.base64 : S.photoBase64;
+        const mime = compressed ? compressed.mime  : S.photoMime;
+        await gasPostCall({
+          action:       'upload_and_notify_photo',
+          tourId:       S.tourId,
+          checkpointId: S.cpId,
+          userId:       S.userId,
+          imageBase64:  b64,
+          imageMime:    mime,
+          timestamp,
+        }, 90000);
+      } catch(photoErr) {
+        console.warn('Photo upload failed (non-fatal):', photoErr.message);
+        setSbar('sbar2', 'warning', '⚠️ ข้อมูลบันทึกแล้ว แต่ส่งรูปไม่สำเร็จ (' + photoErr.message + ')');
+      }
+    }
+
+    _afterCheckinSuccess(timestamp);
+
+  } catch(e) {
+    // ── Offline fallback ────────────────────────────────────────────────────
+    const isOffline = !navigator.onLine || e.name === 'AbortError' ||
+      e.message.includes('หมดเวลา') || e.message.includes('Failed to fetch') ||
+      e.message.includes('NetworkError');
+
+    if (isOffline) {
+      // บันทึกลง localStorage queue
+      offlineEnqueue({
+        tourId:         S.tourId,
+        userId:         S.userId,
+        guardName:      S.userName,
+        checkpointId:   S.cpId,
+        checkpointName: S.cpName,
+        status:         S.status,
+        notes,
+        timestamp,
+        tourStartTime:  S.tourStart || '',
+        gpsLat:         S.gpsLat != null ? String(S.gpsLat) : '',
+        gpsLng:         S.gpsLng != null ? String(S.gpsLng) : '',
+      });
+      updateOfflineBanner();
+      stopGPS();
+      // ถือว่า check-in สำเร็จ (จะส่งทีหลัง)
+      S.checked[S.cpId] = { status: S.status, notes, timestamp, offline: true };
+      _afterCheckinSuccess(timestamp, true);
+    } else {
+      setSbar('sbar2', 'error', `❌ บันทึกไม่สำเร็จ: ${e.message}\nกรุณากดบันทึกอีกครั้ง`);
+      btn.disabled    = false;
+      btn.textContent = '📦 บันทึกการตรวจ';
+    }
+  } finally {
+    S.submitting = false;
+    if (!btn.disabled) btn.textContent = '📦 บันทึกการตรวจ';
+  }
+}
+
+function _afterCheckinSuccess(timestamp, offline = false) {
+  const btn = document.getElementById('btn-submit');
+  btn.disabled    = false;
+  btn.textContent = '📦 บันทึกการตรวจ';
+
+  const done      = Object.keys(S.checked).length;
+  const total     = CHECKPOINTS.length;
+  const remaining = total - done;
+  const offlineNote = offline ? '\n📴 บันทึกไว้ในเครื่อง จะส่งเมื่อมีสัญญาณ' : '\n✅ ส่งรายงานให้ Supervisor แล้ว';
+
+  document.getElementById('ov-ok-msg').textContent =
+    `${S.cpName}\nตรวจแล้ว ${done}/${total} จุด` +
+    (remaining > 0 ? `\nยังเหลืออีก ${remaining} จุด` : '\n🎉 ครบทุกจุดแล้ว!') +
+    offlineNote;
+  show('ov-ok');
+}
+
+function afterSuccess() { hideOv('ov-ok'); renderHome(); }
+
+function endTourManual() {
+  hideOv('ov-ok');
+  const done  = Object.keys(S.checked).length;
+  const total = CHECKPOINTS.length;
+  if (done < total) {
+    if (!confirm(`ยังมีจุดตรวจที่ยังไม่ได้ตรวจอีก ${total-done} จุด\nต้องการจบรอบเลยหรือไม่?`)) {
+      renderHome(); return;
+    }
+  }
+  triggerTourComplete();
+}
+
+async function triggerTourComplete() {
+  stopGPS();
+  const done     = Object.keys(S.checked).length;
+  const total    = CHECKPOINTS.length;
+  const abnormal = Object.values(S.checked).filter(v => v.status === 'abnormal').length;
+  // [v2.6 FIX] ไม่ส่ง guard_tour_complete อีก เพราะแต่ละจุดส่ง LINE แล้วผ่าน guard_checkin
+  // guard_tour_complete จะทำให้ข้อความซ้ำ
+  document.getElementById('ov-done-msg').textContent =
+    `ตรวจ ${done}/${total} จุด\n` +
+    (abnormal > 0 ? `⚠️ ผิดปกติ ${abnormal} จุด` : '✅ ทุกจุดปกติ') +
+    '\n\nรายงาน + รูปภาพส่งทีละจุดแล้ว';
+  show('ov-done');
+}
+
+// ════════════════════════════════════════════════════
+// UI HELPERS
+// ════════════════════════════════════════════════════
+function showSec(name) {
+  ['home','check','confirm'].forEach(s => {
+    document.getElementById('sec-' + s).classList.toggle('hidden', s !== name);
+  });
+  if (name !== 'check') { stopQR(); stopGPS(); }
+  window.scrollTo(0, 0);
+}
+function show(id)    { document.getElementById(id).classList.remove('hidden'); }
+function hide(id)    { document.getElementById(id).classList.add('hidden'); }
+function hideOv(id)  { document.getElementById(id).classList.add('hidden'); }
+function showBlock(reason) {
+  hideOv('ov-load');
+  document.getElementById('ov-block-reason').textContent = reason;
+  show('ov-block');
+}
+function setSbar(id, type, text) {
+  const b     = document.getElementById(id);
+  const icons = { error:'❌', success:'✅', info:'ℹ️', warning:'⚠️' };
+  b.className = 'sbar ' + type;
+  b.innerHTML = `<span>${icons[type]||'ℹ️'}</span><span>${text}</span>`;
+}
+function clearSbar(id) {
+  document.getElementById(id).className = 'sbar hidden';
+}
+
+// ════════════════════════════════════════════════════
+// GLOBAL ERROR HANDLER — แสดง error แทนที่จะค้าง spinner
+// ════════════════════════════════════════════════════
+window.onerror = function(msg, src, line, col, err) {
+  const el = document.getElementById('load-sub');
+  const ti = document.getElementById('load-title');
+  if (el) el.textContent = 'JS Error: ' + msg + ' (line ' + line + ')';
+  if (ti) { ti.textContent = '❌ โหลดไม่สำเร็จ'; ti.style.color = '#ef4444'; }
+  console.error('Global error:', msg, src, line, col, err);
+};
+
+window.onunhandledrejection = function(e) {
+  const el = document.getElementById('load-sub');
+  const ti = document.getElementById('load-title');
+  if (el) el.textContent = 'Promise Error: ' + (e.reason && e.reason.message ? e.reason.message : String(e.reason));
+  if (ti) { ti.textContent = '❌ โหลดไม่สำเร็จ'; ti.style.color = '#ef4444'; }
+  console.error('Unhandled rejection:', e.reason);
+};
+
+// Timeout 35 วิ — ถ้ายังค้าง spinner ให้แสดง error
+setTimeout(function() {
+  const ov = document.getElementById('ov-load');
+  if (ov && !ov.classList.contains('hidden')) {
+    document.getElementById('load-title').textContent = '⏱️ หมดเวลา';
+    document.getElementById('load-title').style.color = '#ef4444';
+    document.getElementById('load-sub').textContent =
+      'โหลดนานเกินไป — อาจเกิดจาก:\n' +
+      '1. เครือข่ายช้า\n2. GAS ไม่ตอบสนอง\n3. LIFF ID ผิด\n\nลองปิดแล้วเปิดใหม่';
+  }
+}, 35000);
+
+init();
+</script>
+</body>
+</html>

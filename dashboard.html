@@ -1,0 +1,1113 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Guard Tour — Command Dashboard v2.9</title>
+<link href="https://fonts.googleapis.com/css2?family=Teko:wght@300;400;500;600;700&family=Sarabun:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+:root {
+  --black:#060609; --bg:#0b0c10; --surface:#111218; --surface2:#181920;
+  --surface3:#1e1f2a; --panel:#13141c; --border:rgba(255,255,255,.06); --border2:rgba(255,255,255,.1);
+  --amber:#f5a623; --amber2:#ffd166; --amber-dim:rgba(245,166,35,.15);
+  --green:#06d672; --green-dim:rgba(6,214,114,.12);
+  --red:#ff4757; --red-dim:rgba(255,71,87,.12);
+  --blue:#4fa3e3; --blue-dim:rgba(79,163,227,.12);
+  --purple:#a78bfa; --purple-dim:rgba(167,139,250,.12);
+  --text:#dde1ec; --muted:#5a5d72; --muted2:#3d3f52;
+}
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Sarabun',sans-serif;background:var(--black);color:var(--text);min-height:100vh;overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;background-image:repeating-linear-gradient(0deg,transparent,transparent 39px,rgba(255,255,255,.012) 39px,rgba(255,255,255,.012) 40px),repeating-linear-gradient(90deg,transparent,transparent 39px,rgba(255,255,255,.012) 39px,rgba(255,255,255,.012) 40px);pointer-events:none;z-index:0}
+
+/* ── HEADER ── */
+.hdr{position:sticky;top:0;z-index:300;background:rgba(11,12,16,.96);backdrop-filter:blur(14px);border-bottom:1px solid var(--border2);padding:0 20px;display:flex;align-items:center;gap:16px;height:56px}
+.hdr-logo{display:flex;align-items:center;gap:9px;flex-shrink:0}
+.hdr-badge{width:34px;height:34px;background:linear-gradient(135deg,var(--amber),#c47a00);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:17px;box-shadow:0 0 18px rgba(245,166,35,.4)}
+.hdr-title{font-family:'Teko',sans-serif;font-size:20px;font-weight:600;letter-spacing:1px;color:var(--amber);line-height:1}
+.hdr-sub{font-size:9px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;font-family:'IBM Plex Mono',monospace}
+.hdr-sep{width:1px;height:28px;background:var(--border2);flex-shrink:0}
+.hdr-online{display:flex;align-items:center;gap:6px;font-size:11px;font-family:'IBM Plex Mono',monospace;color:var(--green)}
+.pulse{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{box-shadow:0 0 6px var(--green)}50%{box-shadow:0 0 16px var(--green),0 0 24px rgba(6,214,114,.3)}}
+.hdr-clock{margin-left:auto;font-family:'IBM Plex Mono',monospace;font-size:17px;font-weight:600;color:var(--amber2);letter-spacing:2px}
+.hdr-date{font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px;text-align:right}
+.hdr-auth{display:flex;gap:7px;align-items:center;flex-shrink:0}
+.hdr-auth input{background:var(--surface2);border:1px solid var(--border2);border-radius:7px;padding:5px 11px;font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--text);width:130px;outline:none;transition:border-color .2s}
+.hdr-auth input:focus{border-color:var(--amber)}
+.hdr-auth input::placeholder{color:var(--muted)}
+.btn-connect{background:var(--amber);color:#000;border:none;border-radius:7px;padding:5px 13px;font-family:'Sarabun',sans-serif;font-size:12px;font-weight:700;cursor:pointer;transition:all .2s;white-space:nowrap}
+.btn-connect:hover{background:var(--amber2)}
+
+/* ── NAV TABS ── */
+.nav-tabs{display:flex;gap:2px;padding:10px 20px 0;background:rgba(11,12,16,.8);border-bottom:1px solid var(--border);position:sticky;top:56px;z-index:200;backdrop-filter:blur(10px)}
+.nav-tab{padding:9px 18px;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer;border-radius:8px 8px 0 0;border:1px solid transparent;border-bottom:none;transition:all .2s;user-select:none}
+.nav-tab:hover{color:var(--text);background:var(--surface2)}
+.nav-tab.active{color:var(--amber);background:var(--surface);border-color:var(--border2);border-bottom-color:var(--surface)}
+
+/* ── MAIN ── */
+.main{position:relative;z-index:1;padding:16px 18px 40px;max-width:1440px;margin:0 auto}
+.tab-panel{display:none}.tab-panel.active{display:block}
+
+/* ── FILTER BAR ── */
+.filter-bar{display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--surface);border:1px solid var(--border);border-radius:11px;margin-bottom:16px;flex-wrap:wrap}
+.filter-lbl{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;font-weight:600;font-family:'IBM Plex Mono',monospace}
+.filter-bar input[type=date]{background:var(--surface2);border:1px solid var(--border2);border-radius:7px;padding:5px 11px;color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:12px;outline:none;color-scheme:dark}
+.filter-bar input:focus{border-color:var(--amber)}
+.btn-f{background:var(--amber-dim);border:1px solid rgba(245,166,35,.3);color:var(--amber);border-radius:7px;padding:5px 12px;font-family:'Sarabun',sans-serif;font-size:12px;font-weight:600;cursor:pointer;transition:all .2s}
+.btn-f:hover{background:rgba(245,166,35,.25)}
+.btn-f.primary{background:var(--amber);color:#000;border-color:var(--amber)}
+.btn-f.primary:hover{background:var(--amber2)}
+.btn-f.green{background:var(--green-dim);border-color:rgba(6,214,114,.3);color:var(--green)}
+.btn-f.green:hover{background:rgba(6,214,114,.2)}
+.ml-auto{margin-left:auto}
+
+/* ── KPI ── */
+.kpi-row{display:grid;grid-template-columns:repeat(5,1fr);gap:11px;margin-bottom:16px}
+@media(max-width:900px){.kpi-row{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:580px){.kpi-row{grid-template-columns:repeat(2,1fr)}}
+.kpi{background:var(--surface);border:1px solid var(--border);border-radius:13px;padding:14px 16px;position:relative;overflow:hidden;transition:border-color .2s,transform .15s}
+.kpi:hover{border-color:var(--border2);transform:translateY(-1px)}
+.kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:2px}
+.kpi.a::before{background:linear-gradient(90deg,var(--amber),transparent)}
+.kpi.g::before{background:linear-gradient(90deg,var(--green),transparent)}
+.kpi.r::before{background:linear-gradient(90deg,var(--red),transparent)}
+.kpi.b::before{background:linear-gradient(90deg,var(--blue),transparent)}
+.kpi.p::before{background:linear-gradient(90deg,var(--purple),transparent)}
+.kpi-icon{font-size:20px;margin-bottom:6px}
+.kpi-num{font-family:'Teko',sans-serif;font-size:38px;font-weight:600;line-height:1}
+.kpi.a .kpi-num{color:var(--amber)}.kpi.g .kpi-num{color:var(--green)}.kpi.r .kpi-num{color:var(--red)}.kpi.b .kpi-num{color:var(--blue)}.kpi.p .kpi-num{color:var(--purple)}
+.kpi-lbl{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;font-weight:600;margin-top:3px}
+.kpi-sub{font-size:10px;font-family:'IBM Plex Mono',monospace;color:var(--muted);margin-top:2px}
+
+/* ── PANELS ── */
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
+.grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:14px}
+.grid-main{display:grid;grid-template-columns:1fr 360px;gap:14px;margin-bottom:14px}
+@media(max-width:1100px){.grid-main{grid-template-columns:1fr}}
+@media(max-width:800px){.grid-2,.grid-3{grid-template-columns:1fr}}
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:13px;overflow:hidden}
+.panel-hdr{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;font-weight:700;font-size:13px}
+.panel-tag{margin-left:auto;font-size:10px;font-family:'IBM Plex Mono',monospace;color:var(--muted);padding:2px 7px;background:var(--surface3);border-radius:5px}
+.panel-body{padding:14px}
+
+/* ── MAP ── */
+#map{width:100%;height:480px;border-radius:0 0 12px 12px;background:var(--surface3)}
+.leaflet-container{background:#111218 !important}
+.map-controls{padding:10px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.map-select{background:var(--surface2);border:1px solid var(--border2);border-radius:7px;padding:5px 10px;color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:11px;outline:none;cursor:pointer}
+.map-legend{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted)}
+.legend-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+
+/* ── CHART ── */
+.chart-wrap{padding:14px;height:240px;position:relative}
+.chart-wrap canvas{max-height:100% !important}
+
+/* ── SHIFT GRID ── */
+.shift-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:3px;padding:12px}
+.shift-cell{border-radius:6px;padding:7px 4px;text-align:center;background:var(--surface2);border:1px solid var(--border2);transition:all .2s;cursor:default}
+.shift-cell:hover{border-color:rgba(245,166,35,.4);background:var(--amber-dim)}
+.shift-cell.ok{border-color:rgba(6,214,114,.4);background:var(--green-dim)}
+.shift-cell.alert{border-color:rgba(255,71,87,.4);background:var(--red-dim)}
+.sh-lbl{font-family:'IBM Plex Mono',monospace;font-size:8px;color:var(--muted)}
+.sh-num{font-family:'Teko',sans-serif;font-size:22px;line-height:1;color:var(--text)}
+.sh-time{font-size:8px;color:var(--muted);font-family:'IBM Plex Mono',monospace}
+
+/* ── CP LIST ── */
+.cp-list{display:flex;flex-direction:column;gap:5px}
+.cp-row{display:flex;align-items:center;gap:9px;padding:9px 11px;background:var(--surface2);border:1px solid var(--border);border-radius:9px;transition:all .18s}
+.cp-row:hover{border-color:var(--border2);background:var(--surface3)}
+.cp-num{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--muted);width:24px;flex-shrink:0}
+.cp-name{font-size:13px;font-weight:600;flex:1;min-width:0}
+.cp-loc{font-size:10px;color:var(--muted)}
+.cp-bar-wrap{width:100%;height:3px;background:var(--surface3);border-radius:2px;margin-top:4px}
+.cp-bar{height:100%;border-radius:2px;background:var(--green);transition:width .6s}
+.cp-bar.warn{background:var(--red)}
+.cp-cnt{font-family:'Teko',sans-serif;font-size:22px;color:var(--text);flex-shrink:0;line-height:1}
+.cp-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.cp-dot.ok{background:var(--green);box-shadow:0 0 7px var(--green)}
+.cp-dot.warn{background:var(--red);box-shadow:0 0 7px var(--red)}
+.cp-dot.none{background:var(--muted2)}
+
+/* ── ACTIVITY FEED ── */
+.act-feed{padding:6px 12px 12px;max-height:380px;overflow-y:auto}
+.act-item{display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);animation:fadeIn .3s}
+.act-item:last-child{border-bottom:none}
+@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}}
+.act-dot-col{display:flex;flex-direction:column;align-items:center;gap:3px;flex-shrink:0;padding-top:3px}
+.act-dot{width:9px;height:9px;border-radius:50%}
+.act-dot.ok{background:var(--green);box-shadow:0 0 7px var(--green)}
+.act-dot.warn{background:var(--red);box-shadow:0 0 7px var(--red)}
+.act-line{width:1px;flex:1;background:var(--border2);min-height:18px}
+.act-body{flex:1;min-width:0}
+.act-top{display:flex;align-items:flex-start;gap:7px;flex-wrap:wrap}
+.act-cp{font-size:13px;font-weight:700}
+.act-badge{font-size:9px;padding:2px 6px;border-radius:20px;font-family:'IBM Plex Mono',monospace;font-weight:600;flex-shrink:0}
+.act-badge.ok{background:var(--green-dim);color:var(--green)}
+.act-badge.warn{background:var(--red-dim);color:var(--red)}
+.act-time{font-size:10px;font-family:'IBM Plex Mono',monospace;color:var(--muted);margin-left:auto;white-space:nowrap;flex-shrink:0}
+.act-guard{font-size:10px;color:var(--muted);margin-top:1px}
+.act-notes{font-size:10px;color:var(--red);margin-top:3px;background:var(--red-dim);padding:2px 7px;border-radius:4px;border-left:2px solid var(--red)}
+
+/* ── TABLE ── */
+.tbl-wrap{overflow-x:auto;max-height:440px;overflow-y:auto}
+.dtbl{width:100%;border-collapse:collapse;font-size:12px}
+.dtbl th{padding:9px 13px;text-align:left;background:var(--surface2);border-bottom:1px solid var(--border2);font-size:10px;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);font-weight:600;font-family:'IBM Plex Mono',monospace;white-space:nowrap;position:sticky;top:0;z-index:1}
+.dtbl td{padding:8px 13px;border-bottom:1px solid var(--border);vertical-align:middle}
+.dtbl tr:hover td{background:var(--surface2)}
+.dtbl tr:last-child td{border-bottom:none}
+.td-mono{font-family:'IBM Plex Mono',monospace;font-size:10px}
+.td-badge{display:inline-flex;align-items:center;gap:3px;font-size:10px;padding:2px 7px;border-radius:20px;font-weight:600;font-family:'IBM Plex Mono',monospace;white-space:nowrap}
+.td-badge.ok{background:var(--green-dim);color:var(--green);border:1px solid rgba(6,214,114,.25)}
+.td-badge.warn{background:var(--red-dim);color:var(--red);border:1px solid rgba(255,71,87,.25)}
+.td-photo{font-size:10px;color:var(--blue);cursor:pointer;text-decoration:underline}
+
+/* ── GUARD LIST ── */
+.guard-item{display:flex;align-items:center;gap:9px;padding:8px 0;border-bottom:1px solid var(--border)}
+.guard-item:last-child{border-bottom:none}
+.guard-avatar{width:32px;height:32px;border-radius:50%;background:var(--amber-dim);border:1px solid rgba(245,166,35,.3);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0}
+.guard-name{font-size:13px;font-weight:700}
+.guard-meta{font-size:10px;color:var(--muted);font-family:'IBM Plex Mono',monospace}
+
+/* ── TOAST ── */
+.toast-wrap{position:fixed;bottom:18px;right:18px;z-index:999;display:flex;flex-direction:column;gap:7px}
+.toast{padding:11px 16px;border-radius:9px;font-size:12px;font-weight:600;box-shadow:0 4px 24px rgba(0,0,0,.5);animation:toastIn .3s;max-width:280px}
+@keyframes toastIn{from{opacity:0;transform:translateX(20px)}}
+.toast.success{background:#0a2e1a;border:1px solid rgba(6,214,114,.4);color:var(--green)}
+.toast.error{background:#2e0a0a;border:1px solid rgba(255,71,87,.4);color:var(--red)}
+.toast.info{background:#0a1e35;border:1px solid rgba(79,163,227,.4);color:var(--blue)}
+.toast.warn{background:#2e1a0a;border:1px solid rgba(245,166,35,.4);color:var(--amber)}
+
+/* ── PHOTO MODAL ── */
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:500;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(6px)}
+.modal.hidden{display:none}
+.modal-box{background:var(--surface);border:1px solid var(--border2);border-radius:14px;overflow:hidden;max-width:90vw;max-height:90vh;display:flex;flex-direction:column}
+.modal-hdr{padding:11px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:9px;font-weight:700;font-size:13px}
+.modal-close{margin-left:auto;cursor:pointer;background:none;border:none;color:var(--muted);font-size:18px;padding:2px 5px}
+.modal-close:hover{color:var(--text)}
+.modal-img{max-width:100%;max-height:80vh;object-fit:contain;display:block}
+
+/* ── EMPTY ── */
+.empty{padding:32px;text-align:center;color:var(--muted);font-size:13px}
+.empty-icon{font-size:36px;margin-bottom:9px}
+
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:var(--muted2);border-radius:2px}
+
+/* ── ADMIN PANEL ── */
+.admin-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
+@media(max-width:800px){.admin-grid{grid-template-columns:1fr}}
+.cp-admin-item{display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;transition:all .18s}
+.cp-admin-item:hover{border-color:var(--border2)}
+.cp-admin-item.inactive{opacity:.45}
+.cp-admin-id{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--amber);background:var(--amber-dim);border:1px solid rgba(245,166,35,.25);border-radius:6px;padding:2px 8px;flex-shrink:0}
+.cp-admin-name{font-size:13px;font-weight:700;flex:1;min-width:0}
+.cp-admin-loc{font-size:10px;color:var(--muted);margin-top:1px}
+.cp-admin-gps{font-size:10px;font-family:'IBM Plex Mono',monospace;color:var(--green);margin-top:2px}
+.cp-admin-gps.no-gps{color:var(--muted)}
+.cp-admin-actions{display:flex;gap:5px;flex-shrink:0}
+.btn-icon{background:var(--surface3);border:1px solid var(--border2);color:var(--text);border-radius:7px;padding:4px 9px;font-size:12px;cursor:pointer;transition:all .2s}
+.btn-icon:hover{border-color:var(--border2);background:var(--surface2)}
+.btn-icon.danger:hover{background:var(--red-dim);border-color:rgba(255,71,87,.4);color:var(--red)}
+.btn-icon.success:hover{background:var(--green-dim);border-color:rgba(6,214,114,.4);color:var(--green)}
+.form-field{display:flex;flex-direction:column;gap:4px;margin-bottom:10px}
+.form-field label{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;font-family:'IBM Plex Mono',monospace}
+.form-field input{background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:8px 12px;font-size:13px;color:var(--text);font-family:'Sarabun',sans-serif;outline:none;transition:border-color .2s}
+.form-field input:focus{border-color:var(--amber)}
+.form-field input::placeholder{color:var(--muted)}
+.form-grid-2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.toggle-wrap{display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer}
+.toggle-wrap input[type=checkbox]{width:16px;height:16px;accent-color:var(--green);cursor:pointer}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="hdr">
+  <div class="hdr-logo">
+    <div class="hdr-badge">🛡️</div>
+    <div><div class="hdr-title">GUARD TOUR</div><div class="hdr-sub">Command Dashboard v2.9</div></div>
+  </div>
+  <div class="hdr-sep"></div>
+  <div class="hdr-online"><div class="pulse"></div><span id="conn-lbl">OFFLINE</span></div>
+  <div class="hdr-auth">
+    <input type="password" id="secret-inp" placeholder="รหัส Supervisor" autocomplete="off">
+    <button class="btn-connect" onclick="doConnect()">เชื่อมต่อ</button>
+  </div>
+  <div style="text-align:right">
+    <div class="hdr-clock" id="clock">00:00:00</div>
+    <div class="hdr-date" id="clock-date">—</div>
+  </div>
+</header>
+
+<!-- NAV TABS -->
+<nav class="nav-tabs">
+  <div class="nav-tab active" onclick="switchTab('overview')">📊 ภาพรวม</div>
+  <div class="nav-tab" onclick="switchTab('map')">🗺️ แผนที่ + GPS</div>
+  <div class="nav-tab" onclick="switchTab('chart')">📈 กราฟ 30 วัน</div>
+  <div class="nav-tab" onclick="switchTab('table')">📋 ตารางข้อมูล</div>
+  <div class="nav-tab" onclick="switchTab('admin')">⚙️ จัดการจุดตรวจ</div>
+</nav>
+
+<!-- MAIN -->
+<div class="main">
+
+  <!-- ════ TAB: OVERVIEW ════ -->
+  <div class="tab-panel active" id="tab-overview">
+    <div class="filter-bar">
+      <span class="filter-lbl">วันที่:</span>
+      <input type="date" id="f-start">
+      <span style="color:var(--muted);font-size:11px">ถึง</span>
+      <input type="date" id="f-end">
+      <button class="btn-f" onclick="loadData()">🔍 โหลด</button>
+      <button class="btn-f primary" onclick="setToday()">📅 วันนี้</button>
+      <button class="btn-f" onclick="setYesterday()">◀ เมื่อวาน</button>
+      <button class="btn-f" onclick="setThisWeek()">📆 สัปดาห์</button>
+      <button class="btn-f green ml-auto" onclick="exportExcel()">📊 Export Excel</button>
+    </div>
+
+    <div class="kpi-row">
+      <div class="kpi a"><div class="kpi-icon">🗂️</div><div class="kpi-num" id="k-tours">—</div><div class="kpi-lbl">รอบตรวจ</div><div class="kpi-sub" id="k-tours-s">—</div></div>
+      <div class="kpi g"><div class="kpi-icon">📍</div><div class="kpi-num" id="k-checkins">—</div><div class="kpi-lbl">จุดตรวจ</div><div class="kpi-sub" id="k-checkins-s">—</div></div>
+      <div class="kpi r"><div class="kpi-icon">⚠️</div><div class="kpi-num" id="k-abnormal">—</div><div class="kpi-lbl">ผิดปกติ</div><div class="kpi-sub" id="k-abnormal-s">—</div></div>
+      <div class="kpi b"><div class="kpi-icon">👤</div><div class="kpi-num" id="k-guards">—</div><div class="kpi-lbl">ยาม</div><div class="kpi-sub" id="k-guards-s">—</div></div>
+      <div class="kpi p"><div class="kpi-icon">📸</div><div class="kpi-num" id="k-photos">—</div><div class="kpi-lbl">ภาพหลักฐาน</div><div class="kpi-sub" id="k-photos-s">—</div></div>
+    </div>
+
+    <div class="grid-main">
+      <div style="display:flex;flex-direction:column;gap:14px">
+        <!-- Shift Coverage -->
+        <div class="panel">
+          <div class="panel-hdr">🕐 ความครอบคลุมรายผลัด<span class="panel-tag" id="sh-tag">—</span></div>
+          <div class="shift-grid" id="shift-grid"></div>
+        </div>
+        <!-- Activity -->
+        <div class="panel">
+          <div class="panel-hdr">⚡ กิจกรรมล่าสุด<span class="panel-tag" id="act-tag">0</span></div>
+          <div class="act-feed" id="act-feed"><div class="empty"><div class="empty-icon">⚡</div>โหลดข้อมูลก่อน</div></div>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:14px">
+        <!-- CP Status -->
+        <div class="panel">
+          <div class="panel-hdr">📍 สถิติจุดตรวจ<span class="panel-tag" id="cp-tag">—</span></div>
+          <div class="panel-body"><div class="cp-list" id="cp-list"><div class="empty" style="padding:16px">—</div></div></div>
+        </div>
+        <!-- Active Guards -->
+        <div class="panel">
+          <div class="panel-hdr">🛡️ ยามออนไลน์<span class="panel-tag" id="guard-tag">0</span></div>
+          <div class="panel-body" id="guard-list"><div class="empty" style="padding:16px">—</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════ TAB: MAP ════ -->
+  <div class="tab-panel" id="tab-map">
+    <div class="panel">
+      <div class="panel-hdr">🗺️ แผนที่จุดตรวจ + GPS Track</div>
+      <div class="map-controls">
+        <span class="filter-lbl">วันที่:</span>
+        <input type="date" id="map-date" class="filter-bar" style="background:var(--surface2);border:1px solid var(--border2);border-radius:7px;padding:5px 11px;color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:12px;outline:none;color-scheme:dark">
+        <button class="btn-f primary" onclick="loadMapData()">📡 โหลดแผนที่</button>
+        <select id="map-tour-select" class="map-select" onchange="showTourTrack(this.value)">
+          <option value="">— เลือกรอบตรวจ —</option>
+        </select>
+        <div class="map-legend"><div class="legend-dot" style="background:var(--amber)"></div>จุดตรวจ</div>
+        <div class="map-legend"><div class="legend-dot" style="background:var(--green)"></div>GPS ปกติ</div>
+        <div class="map-legend"><div class="legend-dot" style="background:var(--red)"></div>GPS ผิดปกติ</div>
+        <div class="map-legend" style="background:rgba(79,163,227,.2);padding:2px 7px;border-radius:4px;border:1px solid rgba(79,163,227,.3)"><span style="color:var(--blue)">— Track</span></div>
+      </div>
+      <div id="map"></div>
+    </div>
+    <div style="margin-top:14px" class="panel">
+      <div class="panel-hdr">📍 รายละเอียด GPS ในรอบที่เลือก<span class="panel-tag" id="track-tag">—</span></div>
+      <div class="tbl-wrap">
+        <table class="dtbl">
+          <thead><tr><th>#</th><th>จุดตรวจ</th><th>เวลา</th><th>สถานะ</th><th>GPS Lat</th><th>GPS Lng</th><th>หมายเหตุ</th></tr></thead>
+          <tbody id="track-tbl-body"><tr><td colspan="7" class="empty">เลือกรอบตรวจเพื่อดู GPS Track</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════ TAB: CHART ════ -->
+  <div class="tab-panel" id="tab-chart">
+    <div style="display:flex;gap:14px;margin-bottom:14px;flex-wrap:wrap">
+      <button class="btn-f primary" onclick="loadChart30Days()">🔄 โหลดกราฟ 30 วัน</button>
+      <span style="color:var(--muted);font-size:12px;align-self:center">ข้อมูลย้อนหลัง 30 วัน อัปเดตอัตโนมัติ</span>
+    </div>
+
+    <div class="grid-2" style="margin-bottom:14px">
+      <div class="panel">
+        <div class="panel-hdr">📈 Check-in รายวัน (30 วัน)<span class="panel-tag" id="chart-total-tag">—</span></div>
+        <div class="chart-wrap"><canvas id="chart-checkins"></canvas></div>
+      </div>
+      <div class="panel">
+        <div class="panel-hdr">⚠️ เหตุผิดปกติรายวัน (30 วัน)<span class="panel-tag" id="chart-abn-tag">—</span></div>
+        <div class="chart-wrap"><canvas id="chart-abnormal"></canvas></div>
+      </div>
+    </div>
+
+    <div class="grid-2" style="margin-bottom:14px">
+      <div class="panel">
+        <div class="panel-hdr">🗂️ รอบตรวจรายวัน (30 วัน)</div>
+        <div class="chart-wrap"><canvas id="chart-tours"></canvas></div>
+      </div>
+      <div class="panel">
+        <div class="panel-hdr">👤 ยามที่ปฏิบัติหน้าที่รายวัน (30 วัน)</div>
+        <div class="chart-wrap"><canvas id="chart-guards"></canvas></div>
+      </div>
+    </div>
+
+    <!-- Summary Stats -->
+    <div class="panel">
+      <div class="panel-hdr">📊 สรุปสถิติย้อนหลัง 30 วัน</div>
+      <div class="panel-body">
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px" id="stats-30-summary">
+          <div class="empty">โหลดข้อมูลก่อน</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════ TAB: TABLE ════ -->
+  <div class="tab-panel" id="tab-table">
+    <div class="filter-bar">
+      <span class="filter-lbl">วันที่:</span>
+      <input type="date" id="t-start">
+      <span style="color:var(--muted);font-size:11px">ถึง</span>
+      <input type="date" id="t-end">
+      <button class="btn-f" onclick="loadTableData()">🔍 โหลด</button>
+      <button class="btn-f primary" onclick="syncTableDates()">🔄 ใช้วันเดียวกับภาพรวม</button>
+      <button class="btn-f green ml-auto" onclick="exportExcel()">📊 Export Excel</button>
+    </div>
+    <div class="panel">
+      <div class="panel-hdr">📋 ข้อมูลทั้งหมด<span class="panel-tag" id="tbl-tag">0 รายการ</span></div>
+      <div class="tbl-wrap">
+        <table class="dtbl" id="data-tbl">
+          <thead><tr><th>#</th><th>เวลา</th><th>รอบตรวจ</th><th>จุดตรวจ</th><th>ยาม</th><th>สถานะ</th><th>หมายเหตุ</th><th>GPS</th><th>รูป</th></tr></thead>
+          <tbody id="tbl-body"><tr><td colspan="9" class="empty">โหลดข้อมูลก่อน</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════ TAB: ADMIN ════ -->
+  <div class="tab-panel" id="tab-admin">
+    <div class="filter-bar" style="margin-bottom:16px">
+      <span class="filter-lbl">จัดการจุดตรวจ</span>
+      <button class="btn-f primary" onclick="loadAdminCheckpoints()">🔄 โหลด / รีเฟรช</button>
+      <button class="btn-f green ml-auto" onclick="showAddCpForm()">➕ เพิ่มจุดตรวจใหม่</button>
+    </div>
+
+    <!-- Add / Edit Form -->
+    <div class="panel" id="admin-form-panel" style="display:none;margin-bottom:14px">
+      <div class="panel-hdr" id="admin-form-title">➕ เพิ่มจุดตรวจใหม่</div>
+      <div class="panel-body">
+        <div class="form-grid-2">
+          <div class="form-field">
+            <label>รหัสจุดตรวจ (CheckpointId) *</label>
+            <input type="text" id="af-id" placeholder="เช่น CP-08" maxlength="20">
+          </div>
+          <div class="form-field">
+            <label>ชื่อจุดตรวจ *</label>
+            <input type="text" id="af-name" placeholder="เช่น ประตูทิศเหนือ">
+          </div>
+        </div>
+        <div class="form-field">
+          <label>คำอธิบายตำแหน่ง</label>
+          <input type="text" id="af-location" placeholder="เช่น ทางเข้าด้านเหนือ">
+        </div>
+        <div class="form-grid-2">
+          <div class="form-field">
+            <label>Latitude (GPS)</label>
+            <input type="number" id="af-lat" placeholder="เช่น 13.756330" step="0.000001">
+          </div>
+          <div class="form-field">
+            <label>Longitude (GPS)</label>
+            <input type="number" id="af-lng" placeholder="เช่น 100.501765" step="0.000001">
+          </div>
+        </div>
+        <div class="form-field" id="af-active-wrap">
+          <label class="toggle-wrap">
+            <input type="checkbox" id="af-active" checked>
+            เปิดใช้งาน (Active)
+          </label>
+        </div>
+        <div id="admin-form-msg" class="sbar hidden" style="margin-bottom:8px"></div>
+        <div style="display:flex;gap:8px;margin-top:4px">
+          <button class="btn-f primary" onclick="submitCpForm()" id="af-submit-btn">💾 บันทึก</button>
+          <button class="btn-f" onclick="hideAdminForm()">✕ ยกเลิก</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Checkpoint List -->
+    <div class="panel">
+      <div class="panel-hdr">📍 รายการจุดตรวจทั้งหมด<span class="panel-tag" id="admin-cp-tag">—</span></div>
+      <div class="panel-body" id="admin-cp-list">
+        <div class="empty"><div class="empty-icon">📍</div>กด "โหลด / รีเฟรช" เพื่อดูรายการ</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+<div class="toast-wrap" id="toast-wrap"></div>
+
+<!-- Photo Modal -->
+<div class="modal hidden" id="photo-modal" onclick="closeModal()">
+  <div class="modal-box" onclick="event.stopPropagation()">
+    <div class="modal-hdr">📸 ภาพหลักฐาน — <span id="modal-cp" style="color:var(--amber)">—</span>
+      <button class="modal-close" onclick="closeModal()">✕</button></div>
+    <img id="modal-img" class="modal-img" src="" alt="">
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════
+// CONFIG
+// ══════════════════════════════════════
+const GAS_URL  = 'https://script.google.com/macros/s/AKfycbweOsHINJk_DSPsueg-YEFaDUUahLcMqoGp1TzJJ6uS_ACCuKorrm38Ww21NPB4TV94kQ/exec';
+// ❌ ไม่เก็บรหัสผ่านใน frontend — ตรวจสอบกับ GAS แทน (v3.0)
+const SHIFTS   = [
+  {id:1,label:'ผ.1',start:'22:00',end:'00:00'},{id:2,label:'ผ.2',start:'00:00',end:'02:00'},
+  {id:3,label:'ผ.3',start:'02:00',end:'04:00'},{id:4,label:'ผ.4',start:'04:00',end:'06:00'},
+  {id:5,label:'ผ.5',start:'06:00',end:'08:00'},{id:6,label:'ผ.6',start:'08:00',end:'10:00'},
+  {id:7,label:'ผ.7',start:'10:00',end:'12:00'},{id:8,label:'ผ.8',start:'12:00',end:'14:00'},
+  {id:9,label:'ผ.9',start:'14:00',end:'16:00'},{id:10,label:'ผ.10',start:'16:00',end:'18:00'},
+  {id:11,label:'ผ.11',start:'18:00',end:'20:00'},{id:12,label:'ผ.12',start:'20:00',end:'22:00'},
+];
+
+let ALL_ROWS = [], CHECKPOINTS = [], GPS_TOURS = [];
+let leafletMap = null, mapLayers = {}, isConnected = false;
+let charts = {};
+let autoTimer = null;
+
+// ══════════════════════════════════════
+// CLOCK
+// ══════════════════════════════════════
+function tickClock() {
+  const now = new Date();
+  document.getElementById('clock').textContent = now.toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  document.getElementById('clock-date').textContent = now.toLocaleDateString('th-TH',{weekday:'short',year:'numeric',month:'short',day:'numeric'});
+}
+setInterval(tickClock,1000); tickClock();
+
+// ══════════════════════════════════════
+// TABS
+// ══════════════════════════════════════
+function switchTab(name) {
+  const tabs = ['overview','map','chart','table','admin'];
+  document.querySelectorAll('.nav-tab').forEach((t,i)=>t.classList.toggle('active', tabs[i]===name));
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+  if (name==='map' && !leafletMap) initMap();
+  if (name==='chart' && isConnected) loadChart30Days();
+  if (name==='admin' && isConnected) loadAdminCheckpoints();
+}
+
+// ══════════════════════════════════════
+// DATE HELPERS
+// ══════════════════════════════════════
+const toDateInput = d => d.toISOString().slice(0,10);
+function setToday()     { const d=new Date(); set2(d,d); loadData(); }
+function setYesterday() { const d=new Date();d.setDate(d.getDate()-1); set2(d,d); loadData(); }
+function setThisWeek()  { const d=new Date(),m=new Date(d);m.setDate(d.getDate()-d.getDay()+1); set2(m,d); loadData(); }
+function set2(s,e)      { document.getElementById('f-start').value=toDateInput(s); document.getElementById('f-end').value=toDateInput(e); }
+function syncTableDates(){ document.getElementById('t-start').value=document.getElementById('f-start').value; document.getElementById('t-end').value=document.getElementById('f-end').value; loadTableData(); }
+
+(()=>{ const d=new Date(); set2(d,d); document.getElementById('t-start').value=toDateInput(d); document.getElementById('t-end').value=toDateInput(d); document.getElementById('map-date').value=toDateInput(d); })();
+
+// ══════════════════════════════════════
+// CONNECT
+// ══════════════════════════════════════
+async function doConnect() {
+  const s = document.getElementById('secret-inp').value.trim();
+  if (!s) { toast('กรอกรหัสก่อน','error'); return; }
+
+  const btn = document.querySelector('.btn-connect');
+  btn.disabled = true; btn.textContent = 'กำลังตรวจสอบ...';
+
+  try {
+    // ส่งรหัสไปตรวจสอบที่ GAS — ไม่เก็บ secret ใน frontend
+    const res = await apiFetch(
+      `${GAS_URL}?action=verify_dashboard_secret&secret=${encodeURIComponent(s)}`
+    );
+    if (!res || !res.ok) {
+      toast('รหัสไม่ถูกต้อง', 'error');
+      btn.disabled = false; btn.textContent = 'เชื่อมต่อ';
+      return;
+    }
+    isConnected = true;
+    document.getElementById('conn-lbl').textContent = 'AUTHENTICATED';
+    document.getElementById('secret-inp').value = '';
+    document.getElementById('secret-inp').placeholder = '••••••••••';
+    toast('✅ เชื่อมต่อสำเร็จ', 'success');
+    loadData();
+    autoTimer = setInterval(()=>{ const t=toDateInput(new Date()); if(document.getElementById('f-end').value===t) loadData(true); }, 60000);
+  } catch(e) {
+    toast('เชื่อมต่อไม่ได้: ' + e.message.substring(0,40), 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = 'เชื่อมต่อ';
+  }
+}
+
+// ══════════════════════════════════════
+// API
+// ══════════════════════════════════════
+async function apiFetch(url) {
+  const ctrl=new AbortController(), tid=setTimeout(()=>ctrl.abort(),25000);
+  try { const r=await fetch(url,{redirect:'follow',signal:ctrl.signal}); clearTimeout(tid); const t=await r.text(); try{return JSON.parse(t);}catch(_){return null;} }
+  catch(e){ clearTimeout(tid); throw e; }
+}
+
+// ══════════════════════════════════════
+// LOAD DATA (Overview + Table)
+// ══════════════════════════════════════
+async function loadData(silent=false) {
+  if (!isConnected) { toast('กรอกรหัสก่อน','error'); return; }
+  const s=document.getElementById('f-start').value, e=document.getElementById('f-end').value;
+  if (!s||!e) { toast('เลือกช่วงวันที่ก่อน','error'); return; }
+  if (!silent) toast('🔄 กำลังโหลด...','info');
+  try {
+    const [tr,cr,gr] = await Promise.all([
+      apiFetch(`${GAS_URL}?action=get_tour_data&startDate=${s}&endDate=${e}`),
+      apiFetch(`${GAS_URL}?action=get_checkpoints`),
+      apiFetch(`${GAS_URL}?action=get_active_guards`),
+    ]);
+    CHECKPOINTS = (cr&&cr.checkpoints)||[];
+    ALL_ROWS    = (tr&&tr.rows)||[];
+    if (!tr||tr.status==='error') { ALL_ROWS=genDemo(s,e); if(!silent) toast('⚠️ Demo mode','warn'); }
+    renderOverview(s);
+    renderGuards(gr);
+    if (!silent) toast(`✅ โหลดแล้ว ${ALL_ROWS.length} รายการ`,'success');
+  } catch(err) {
+    ALL_ROWS=genDemo(s,e); renderOverview(s); if(!silent) toast('⚠️ Demo: '+err.message.substring(0,40),'warn');
+  }
+}
+
+async function loadTableData() {
+  if (!isConnected) { toast('กรอกรหัสก่อน','error'); return; }
+  const s=document.getElementById('t-start').value, e=document.getElementById('t-end').value;
+  try {
+    const r=await apiFetch(`${GAS_URL}?action=get_tour_data&startDate=${s}&endDate=${e}`);
+    const rows=(r&&r.rows)||[];
+    renderTable(rows);
+    toast(`✅ ตาราง ${rows.length} รายการ`,'success');
+  } catch(err) { toast('Error: '+err.message,'error'); }
+}
+
+// ══════════════════════════════════════
+// RENDER OVERVIEW
+// ══════════════════════════════════════
+function renderOverview(startDate) {
+  const tours=new Set(ALL_ROWS.map(r=>r.tourId));
+  const abn=ALL_ROWS.filter(r=>r.status==='ผิดปกติ');
+  const gds=new Set(ALL_ROWS.map(r=>r.guardName));
+  const photos=ALL_ROWS.filter(r=>r.photoUrl&&r.photoUrl.startsWith('http'));
+  animNum('k-tours',tours.size); animNum('k-checkins',ALL_ROWS.length); animNum('k-abnormal',abn.length); animNum('k-guards',gds.size); animNum('k-photos',photos.length);
+  document.getElementById('k-tours-s').textContent=tours.size+' รอบ';
+  document.getElementById('k-checkins-s').textContent=ALL_ROWS.length+' รายการ';
+  document.getElementById('k-abnormal-s').textContent=abn.length>0?'⚠️ พบ '+abn.length+' จุด':'✅ ปกติ';
+  document.getElementById('k-guards-s').textContent=gds.size+' นาย';
+  document.getElementById('k-photos-s').textContent=photos.length+' รูป';
+  renderShifts(startDate); renderActivity(); renderCPs(); renderTable(ALL_ROWS,'tbl-body');
+}
+
+function renderShifts(startDate) {
+  const sc={}, sa={};
+  SHIFTS.forEach(s=>{ sc[s.id]=0; sa[s.id]=0; });
+  ALL_ROWS.forEach(r=>{
+    const ts=r.tourStartTime||r.timestamp; if(!ts) return;
+    const d=new Date(ts), h=d.getHours(), m=d.getMinutes(), nm=h*60+m;
+    for(const sh of SHIFTS){
+      const [sh_h,sh_m]=sh.start.split(':').map(Number), [eh,em]=sh.end.split(':').map(Number);
+      let s=sh_h*60+sh_m, e=eh*60+em; if(e<=s)e+=1440;
+      const adj=nm+(nm<s&&s>=720?1440:0);
+      if(adj>=s&&adj<e){ sc[sh.id]++; if(r.status==='ผิดปกติ') sa[sh.id]++; break; }
+    }
+  });
+  document.getElementById('sh-tag').textContent=startDate;
+  document.getElementById('shift-grid').innerHTML=SHIFTS.map(sh=>{
+    const c=sc[sh.id],a=sa[sh.id];
+    return `<div class="shift-cell ${a>0?'alert':c>0?'ok':''}" title="${sh.label}: ${c} check-in${a>0?' ('+a+' ผิดปกติ)':''}">
+      <div class="sh-lbl">${sh.label}</div><div class="sh-time">${sh.start}</div><div class="sh-num">${c}</div></div>`;
+  }).join('');
+}
+
+function renderActivity() {
+  const feed=document.getElementById('act-feed');
+  const recent=ALL_ROWS.slice(0,60);
+  document.getElementById('act-tag').textContent=recent.length;
+  if(!recent.length){feed.innerHTML='<div class="empty"><div class="empty-icon">⚡</div>ไม่มีข้อมูล</div>';return;}
+  feed.innerHTML=recent.map((r,i)=>{
+    const ok=r.status!=='ผิดปกติ',last=i===recent.length-1;
+    return `<div class="act-item">
+      <div class="act-dot-col"><div class="act-dot ${ok?'ok':'warn'}"></div>${!last?'<div class="act-line"></div>':''}</div>
+      <div class="act-body">
+        <div class="act-top"><div class="act-cp">${esc(r.checkpointName)}</div>
+          <span class="act-badge ${ok?'ok':'warn'}">${ok?'✅ ปกติ':'⚠️ ผิดปกติ'}</span>
+          <div class="act-time">${fmtTime(r.timestamp)}</div></div>
+        <div class="act-guard">👤 ${esc(r.guardName)} · ${esc(r.tourId)}</div>
+        ${r.notes?`<div class="act-notes">📝 ${esc(r.notes)}</div>`:''}
+      </div></div>`;
+  }).join('');
+}
+
+function renderCPs() {
+  const cpMap={};
+  ALL_ROWS.forEach(r=>{ if(!cpMap[r.checkpointId]) cpMap[r.checkpointId]={name:r.checkpointName,total:0,abn:0}; cpMap[r.checkpointId].total++; if(r.status==='ผิดปกติ') cpMap[r.checkpointId].abn++; });
+  const keys=Object.keys(cpMap), max=Math.max(...Object.values(cpMap).map(c=>c.total),1);
+  document.getElementById('cp-tag').textContent=keys.length+' จุด';
+  const el=document.getElementById('cp-list');
+  if(!keys.length){el.innerHTML='<div class="empty" style="padding:16px"><div class="empty-icon">📍</div>ไม่มีข้อมูล</div>';return;}
+  el.innerHTML=keys.map((id,i)=>{
+    const c=cpMap[id], pct=(c.total/max*100).toFixed(0);
+    return `<div class="cp-row">
+      <div class="cp-num">${String(i+1).padStart(2,'0')}</div>
+      <div style="flex:1;min-width:0"><div class="cp-name">${esc(c.name)}</div>
+        <div class="cp-bar-wrap"><div class="cp-bar ${c.abn>0?'warn':''}" style="width:${pct}%"></div></div>
+        <div class="cp-loc">${c.total} ครั้ง${c.abn>0?' · ⚠️ '+c.abn+' ผิดปกติ':''}</div></div>
+      <div class="cp-cnt">${c.total}</div>
+      <div class="cp-dot ${c.abn>0?'warn':'ok'}"></div></div>`;
+  }).join('');
+}
+
+function renderGuards(res) {
+  const guards=(res&&res.guards)||[];
+  document.getElementById('guard-tag').textContent=guards.length;
+  const el=document.getElementById('guard-list');
+  if(!guards.length){el.innerHTML='<div class="empty" style="padding:16px"><div class="empty-icon">🛡️</div>ไม่มียามออนไลน์</div>';return;}
+  el.innerHTML=guards.map(g=>`<div class="guard-item">
+    <div class="guard-avatar">${g.adminType==='SUPER_ADMIN'?'👑':'🛡️'}</div>
+    <div><div class="guard-name">${esc(g.userName)}</div><div class="guard-meta">${g.adminType} · เข้า ${fmtTime(g.loginTime)}</div></div>
+    <div class="cp-dot ok" style="margin-left:auto"></div></div>`).join('');
+}
+
+function renderTable(rows, tbodyId='tbl-body') {
+  const el=document.getElementById(tbodyId);
+  document.getElementById('tbl-tag').textContent=rows.length+' รายการ';
+  if(!rows.length){el.innerHTML=`<tr><td colspan="9" class="empty">ไม่มีข้อมูล</td></tr>`;return;}
+  el.innerHTML=rows.map((r,i)=>{
+    const ok=r.status!=='ผิดปกติ';
+    const gps=r.gpsLat&&r.gpsLng?`<span class="td-mono">${r.gpsLat},${r.gpsLng}</span>`:'<span style="color:var(--muted)">—</span>';
+    const photo=r.photoUrl&&r.photoUrl.startsWith('http')?`<span class="td-photo" onclick="openModal('${r.photoUrl}','${esc(r.checkpointName)}')">📷 ดูรูป</span>`:'<span style="color:var(--muted)">—</span>';
+    return `<tr><td class="td-mono" style="color:var(--muted)">${i+1}</td>
+      <td class="td-mono">${fmtTimeFull(r.timestamp)}</td>
+      <td class="td-mono" style="font-size:10px;color:var(--muted)">${esc(r.tourId)}</td>
+      <td><strong>${esc(r.checkpointName)}</strong></td>
+      <td>${esc(r.guardName)}</td>
+      <td><span class="td-badge ${ok?'ok':'warn'}">${ok?'✅ ปกติ':'⚠️ ผิดปกติ'}</span></td>
+      <td style="font-size:11px;color:${ok?'var(--muted)':'var(--red)'}">${esc(r.notes)||'—'}</td>
+      <td>${gps}</td><td>${photo}</td></tr>`;
+  }).join('');
+}
+
+// ══════════════════════════════════════
+// MAP (Leaflet)
+// ══════════════════════════════════════
+function initMap() {
+  leafletMap = L.map('map').setView([13.7563, 100.5018], 15);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{
+    attribution:'©OpenStreetMap ©CARTO', maxZoom:19
+  }).addTo(leafletMap);
+  // Custom dark popup style
+  const style=document.createElement('style');
+  style.textContent=`.leaflet-popup-content-wrapper{background:var(--surface)!important;color:var(--text)!important;border:1px solid var(--border2)!important;border-radius:10px!important}.leaflet-popup-tip{background:var(--surface)!important}.leaflet-popup-content{color:var(--text)!important}`;
+  document.head.appendChild(style);
+}
+
+async function loadMapData() {
+  if (!isConnected) { toast('กรอกรหัสก่อน','error'); return; }
+  if (!leafletMap) initMap();
+  const date = document.getElementById('map-date').value;
+  toast('📡 โหลดแผนที่...','info');
+  try {
+    const [cpRes, trackRes] = await Promise.all([
+      apiFetch(`${GAS_URL}?action=get_checkpoints`),
+      apiFetch(`${GAS_URL}?action=get_gps_tracks&date=${date}`),
+    ]);
+    CHECKPOINTS = (cpRes&&cpRes.checkpoints)||[];
+    GPS_TOURS   = (trackRes&&trackRes.tours)||[];
+
+    // ล้าง layers เดิม
+    Object.values(mapLayers).forEach(l=>{ if(leafletMap.hasLayer(l)) leafletMap.removeLayer(l); });
+    mapLayers={};
+
+    // วางจุดตรวจ
+    const cpGroup = L.layerGroup();
+    let bounds=[];
+    CHECKPOINTS.forEach(cp=>{
+      if(!cp.lat||!cp.lng) return;
+      const ico=L.divIcon({className:'',html:`<div style="width:28px;height:28px;background:${cp.lat?'#f5a623':'#5a5d72'};border-radius:50%;border:2px solid #fff;display:flex;align-items:center;justify-content:center;font-size:13px;box-shadow:0 2px 8px rgba(0,0,0,.5)">📍</div>`,iconSize:[28,28],iconAnchor:[14,14]});
+      L.marker([cp.lat,cp.lng],{icon:ico}).addTo(cpGroup).bindPopup(`<b>${cp.name}</b><br><small>${cp.id}</small><br><small>${cp.location}</small>`);
+      bounds.push([cp.lat,cp.lng]);
+    });
+    cpGroup.addTo(leafletMap);
+    mapLayers.cp = cpGroup;
+
+    // ใส่รายการ Tour ใน select
+    const sel=document.getElementById('map-tour-select');
+    sel.innerHTML='<option value="">— เลือกรอบตรวจ —</option>';
+    GPS_TOURS.forEach(t=>{ const o=document.createElement('option'); o.value=t.tourId; o.textContent=`${t.tourId} (${t.guardName}) ${fmtTime(t.startTime)}`; sel.appendChild(o); });
+
+    if (bounds.length>0) leafletMap.fitBounds(bounds,{padding:[30,30]});
+    toast(`✅ โหลดแผนที่: ${CHECKPOINTS.length} จุด, ${GPS_TOURS.length} รอบ`,'success');
+  } catch(err) { toast('Map error: '+err.message,'error'); }
+}
+
+function showTourTrack(tourId) {
+  if (!leafletMap) return;
+  // ล้าง track เดิม
+  ['track','trackMarkers'].forEach(k=>{ if(mapLayers[k]&&leafletMap.hasLayer(mapLayers[k])) leafletMap.removeLayer(mapLayers[k]); });
+
+  if (!tourId) { document.getElementById('track-tbl-body').innerHTML='<tr><td colspan="7" class="empty">เลือกรอบตรวจ</td></tr>'; document.getElementById('track-tag').textContent='—'; return; }
+
+  const tour = GPS_TOURS.find(t=>t.tourId===tourId);
+  if (!tour||!tour.points.length) { toast('ไม่พบ GPS ในรอบนี้','warn'); return; }
+
+  const pts = tour.points.filter(p=>p.lat&&p.lng);
+  if (!pts.length) { toast('ไม่มีพิกัด GPS ในรอบนี้','warn'); return; }
+
+  // วาด Polyline (GPS Track)
+  const latlngs = pts.map(p=>[p.lat,p.lng]);
+  const line = L.polyline(latlngs,{color:'#4fa3e3',weight:2.5,opacity:.8,dashArray:'5,4'}).addTo(leafletMap);
+  mapLayers.track = line;
+
+  // วาง Marker GPS ทีละจุด
+  const markerGroup = L.layerGroup();
+  pts.forEach((p,i)=>{
+    const ok=p.status!=='ผิดปกติ';
+    const ico=L.divIcon({className:'',html:`<div style="width:24px;height:24px;background:${ok?'#06d672':'#ff4757'};border-radius:50%;border:2px solid rgba(255,255,255,.8);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#000;box-shadow:0 2px 8px rgba(0,0,0,.5)">${i+1}</div>`,iconSize:[24,24],iconAnchor:[12,12]});
+    L.marker([p.lat,p.lng],{icon:ico}).addTo(markerGroup).bindPopup(`<b>${p.checkpointName}</b><br>${fmtTime(p.timestamp)}<br><span style="color:${ok?'#06d672':'#ff4757'}">${p.status}</span>${p.notes?'<br>'+p.notes:''}`);
+  });
+  markerGroup.addTo(leafletMap);
+  mapLayers.trackMarkers = markerGroup;
+
+  // Fit bounds
+  leafletMap.fitBounds(L.polyline(latlngs).getBounds(),{padding:[30,30]});
+
+  // Render ตาราง GPS
+  document.getElementById('track-tag').textContent=pts.length+' จุด';
+  document.getElementById('track-tbl-body').innerHTML=pts.map((p,i)=>{
+    const ok=p.status!=='ผิดปกติ';
+    return `<tr><td class="td-mono" style="color:var(--muted)">${i+1}</td>
+      <td><strong>${esc(p.checkpointName)}</strong></td>
+      <td class="td-mono">${fmtTime(p.timestamp)}</td>
+      <td><span class="td-badge ${ok?'ok':'warn'}">${ok?'✅ ปกติ':'⚠️ ผิดปกติ'}</span></td>
+      <td class="td-mono">${p.lat.toFixed(6)}</td>
+      <td class="td-mono">${p.lng.toFixed(6)}</td>
+      <td style="font-size:11px;color:var(--muted)">${esc(p.notes)||'—'}</td></tr>`;
+  }).join('');
+}
+
+// ══════════════════════════════════════
+// CHART 30 DAYS
+// ══════════════════════════════════════
+Chart.defaults.color='#5a5d72';
+Chart.defaults.borderColor='rgba(255,255,255,.06)';
+
+async function loadChart30Days() {
+  if (!isConnected) { toast('กรอกรหัสก่อน','error'); return; }
+  toast('📈 โหลดกราฟ 30 วัน...','info');
+  try {
+    const res = await apiFetch(`${GAS_URL}?action=get_stats_30days`);
+    const days = (res&&res.days)||genDemoChart30();
+    renderCharts(days);
+    toast(`✅ กราฟพร้อมแล้ว (${days.length} วัน)`,'success');
+  } catch(err) {
+    renderCharts(genDemoChart30());
+    toast('⚠️ Demo chart: '+err.message.substring(0,40),'warn');
+  }
+}
+
+function renderCharts(days) {
+  const labels = days.map(d=>{
+    const dt=new Date(d.date+'T12:00:00+07:00');
+    return `${dt.getDate()}/${dt.getMonth()+1}`;
+  });
+  const checkins = days.map(d=>d.checkins);
+  const abnormals = days.map(d=>d.abnormal);
+  const tours  = days.map(d=>d.tours);
+  const guards = days.map(d=>d.guards);
+
+  // Totals
+  const tc=checkins.reduce((a,b)=>a+b,0), ta=abnormals.reduce((a,b)=>a+b,0);
+  document.getElementById('chart-total-tag').textContent=tc+' รวม';
+  document.getElementById('chart-abn-tag').textContent=ta+' รวม';
+
+  buildChart('chart-checkins', labels, checkins, 'Check-in', '#f5a623', 'rgba(245,166,35,.15)');
+  buildChart('chart-abnormal', labels, abnormals, 'ผิดปกติ', '#ff4757', 'rgba(255,71,87,.15)');
+  buildChart('chart-tours',    labels, tours,    'รอบตรวจ', '#4fa3e3', 'rgba(79,163,227,.15)');
+  buildChart('chart-guards',   labels, guards,   'ยาม',     '#a78bfa', 'rgba(167,139,250,.15)');
+
+  // Summary stats
+  const avgCheckin = (tc/days.length).toFixed(1);
+  const activeDays = days.filter(d=>d.checkins>0).length;
+  const maxDay = days.reduce((a,b)=>a.checkins>b.checkins?a:b,days[0]);
+  document.getElementById('stats-30-summary').innerHTML=`
+    <div style="text-align:center;padding:12px;background:var(--surface2);border-radius:10px;border:1px solid var(--border2)">
+      <div style="font-family:'Teko',sans-serif;font-size:36px;color:var(--amber)">${tc}</div>
+      <div style="font-size:10px;color:var(--muted);text-transform:uppercase">Check-in รวม</div>
+    </div>
+    <div style="text-align:center;padding:12px;background:var(--surface2);border-radius:10px;border:1px solid var(--border2)">
+      <div style="font-family:'Teko',sans-serif;font-size:36px;color:var(--green)">${activeDays}</div>
+      <div style="font-size:10px;color:var(--muted);text-transform:uppercase">วันที่มีการตรวจ</div>
+    </div>
+    <div style="text-align:center;padding:12px;background:var(--surface2);border-radius:10px;border:1px solid var(--border2)">
+      <div style="font-family:'Teko',sans-serif;font-size:36px;color:var(--blue)">${avgCheckin}</div>
+      <div style="font-size:10px;color:var(--muted);text-transform:uppercase">เฉลี่ย/วัน</div>
+    </div>
+    <div style="text-align:center;padding:12px;background:var(--surface2);border-radius:10px;border:1px solid var(--border2)">
+      <div style="font-family:'Teko',sans-serif;font-size:36px;color:var(--red)">${ta}</div>
+      <div style="font-size:10px;color:var(--muted);text-transform:uppercase">ผิดปกติรวม</div>
+    </div>`;
+}
+
+function buildChart(id, labels, data, label, color, fill) {
+  const ctx = document.getElementById(id);
+  if (charts[id]) charts[id].destroy();
+  charts[id] = new Chart(ctx, {
+    type:'line',
+    data:{
+      labels,
+      datasets:[{label, data, borderColor:color, backgroundColor:fill, borderWidth:1.5, fill:true, tension:.35, pointRadius:2, pointHoverRadius:5, pointBackgroundColor:color}]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:false}, tooltip:{ callbacks:{ title:i=>`วันที่ ${labels[i[0].dataIndex]}`, label:i=>`${i.dataset.label}: ${i.raw}` } } },
+      scales:{
+        x:{ grid:{color:'rgba(255,255,255,.04)'}, ticks:{maxRotation:0, maxTicksLimit:10, font:{size:10}, color:'#5a5d72'} },
+        y:{ grid:{color:'rgba(255,255,255,.04)'}, beginAtZero:true, ticks:{font:{size:10}, color:'#5a5d72', stepSize:1} }
+      }
+    }
+  });
+}
+
+// ══════════════════════════════════════
+// EXPORT
+// ══════════════════════════════════════
+function exportExcel() {
+  if (!ALL_ROWS.length) { toast('ไม่มีข้อมูล','error'); return; }
+  const s=document.getElementById('f-start').value, e=document.getElementById('f-end').value;
+  const headers=['ลำดับ','วันที่','เวลา','รอบตรวจ','จุดตรวจ','รหัสจุด','ยาม','สถานะ','หมายเหตุ','GPS Lat','GPS Lng','มีรูป'];
+  const rows=ALL_ROWS.map((r,i)=>{
+    const dt=new Date(r.timestamp||Date.now());
+    return [i+1,dt.toLocaleDateString('th-TH'),dt.toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'}),r.tourId,r.checkpointName,r.checkpointId,r.guardName,r.status,r.notes||'',r.gpsLat||'',r.gpsLng||'',r.photoUrl?'มี':'ไม่มี'].map(v=>`"${String(v||'').replace(/"/g,'""')}"`).join(',');
+  });
+  const csv='\uFEFF'+[headers.map(h=>`"${h}"`).join(','),...rows].join('\n');
+  const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8;'}));
+  a.download=`GuardTour_${s}_${e}.csv`; a.click();
+  toast(`✅ Export ${ALL_ROWS.length} รายการ`,'success');
+}
+
+// ══════════════════════════════════════
+// DEMO DATA
+// ══════════════════════════════════════
+function genDemo(s,e) {
+  const cpNames=[{id:'CP-01',name:'ประตูทิศเหนือ'},{id:'CP-02',name:'ประตูทิศใต้'},{id:'CP-03',name:'คลังแสง'},{id:'CP-04',name:'ที่พักทหาร'}];
+  if(CHECKPOINTS.length) CHECKPOINTS.forEach((cp,i)=>{ cpNames[i]={id:cp.id,name:cp.name}; });
+  const guards=['ส.ต.สมชาย','ส.ต.วิชัย','ส.ต.ประเสริฐ'];
+  const rows=[]; const start=new Date(s), end=new Date(e+'T23:59:59');
+  for(let d=new Date(start);d<=end;d.setDate(d.getDate()+1)){
+    for(let t=0;t<3;t++){
+      const tid='TOUR-'+Math.random().toString(36).substr(2,6).toUpperCase();
+      const guard=guards[t%guards.length], hour=[6,14,22][t];
+      const td=new Date(d); td.setHours(hour,0,0,0);
+      cpNames.forEach((cp,ci)=>{
+        const ts=new Date(td.getTime()+ci*5*60000), abn=Math.random()<0.07;
+        rows.push({tourId:tid,checkpointId:cp.id,checkpointName:cp.name,guardName:guard,timestamp:ts.toISOString(),status:abn?'ผิดปกติ':'ปกติ',notes:abn?'พบประตูเปิดค้าง':'',photoUrl:'',tourStartTime:td.toISOString(),gpsLat:(13.75+Math.random()*.01).toFixed(6),gpsLng:(100.50+Math.random()*.01).toFixed(6)});
+      });
+    }
+  }
+  return rows.sort((a,b)=>new Date(b.timestamp)-new Date(a.timestamp));
+}
+
+function genDemoChart30() {
+  const days=[];
+  for(let i=29;i>=0;i--){ const d=new Date(); d.setDate(d.getDate()-i);
+    days.push({date:toDateInput(d),checkins:Math.floor(Math.random()*20+5),abnormal:Math.floor(Math.random()*3),tours:Math.floor(Math.random()*4+1),guards:Math.floor(Math.random()*2+1)}); }
+  return days;
+}
+
+// ══════════════════════════════════════
+// UTILS
+// ══════════════════════════════════════
+function fmtTime(iso) { try{return new Date(iso).toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'});}catch(_){return'—';} }
+function fmtTimeFull(iso) { try{const d=new Date(iso);return d.toLocaleDateString('th-TH',{day:'2-digit',month:'short'})+' '+d.toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'});}catch(_){return'—';} }
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function animNum(id,target) {
+  const el=document.getElementById(id),start=parseInt(el.textContent)||0,steps=20;
+  let i=0; const t=setInterval(()=>{ i++; el.textContent=Math.round(start+(target-start)*(i/steps)); if(i>=steps){el.textContent=target;clearInterval(t);} },20);
+}
+
+function toast(msg,type='info') {
+  const w=document.getElementById('toast-wrap'), el=document.createElement('div');
+  el.className='toast '+type; el.textContent=msg; w.appendChild(el);
+  setTimeout(()=>{el.style.opacity='0';el.style.transition='.3s';setTimeout(()=>el.remove(),300);},3000);
+}
+
+// ══════════════════════════════════════
+// ADMIN PANEL — Checkpoint Management
+// ══════════════════════════════════════
+let ADMIN_CPS = [];
+let ADMIN_EDIT_ID = null;
+
+async function loadAdminCheckpoints() {
+  if (!isConnected) { toast('กรอกรหัสก่อน','error'); return; }
+  try {
+    const res = await apiFetch(`${GAS_URL}?action=get_checkpoints_admin`);
+    ADMIN_CPS = (res && res.checkpoints) || [];
+    renderAdminCPs();
+    toast(`✅ โหลดจุดตรวจ ${ADMIN_CPS.length} จุด`, 'success');
+  } catch(e) { toast('Error: '+e.message,'error'); }
+}
+
+function renderAdminCPs() {
+  const el = document.getElementById('admin-cp-list');
+  document.getElementById('admin-cp-tag').textContent = ADMIN_CPS.length + ' จุด';
+  if (!ADMIN_CPS.length) {
+    el.innerHTML = '<div class="empty"><div class="empty-icon">📍</div>ยังไม่มีจุดตรวจ กด "เพิ่มจุดตรวจใหม่"</div>';
+    return;
+  }
+  el.innerHTML = ADMIN_CPS.map(cp => {
+    const hasGps = cp.lat && cp.lng;
+    return `<div class="cp-admin-item ${cp.active ? '' : 'inactive'}">
+      <div class="cp-admin-id">${esc(cp.id)}</div>
+      <div style="flex:1;min-width:0">
+        <div class="cp-admin-name">${esc(cp.name)}</div>
+        <div class="cp-admin-loc">${esc(cp.location || '—')}</div>
+        <div class="cp-admin-gps ${hasGps ? '' : 'no-gps'}">
+          ${hasGps ? `📍 ${cp.lat}, ${cp.lng}` : '📍 ยังไม่มีพิกัด GPS'}
+        </div>
+      </div>
+      <div style="font-size:10px;color:var(--muted);margin-right:6px;text-align:right">
+        <div>ลำดับ ${cp.order}</div>
+        <div style="color:${cp.active ? 'var(--green)' : 'var(--red)'}">${cp.active ? '● เปิด' : '● ปิด'}</div>
+      </div>
+      <div class="cp-admin-actions">
+        <button class="btn-icon success" title="แก้ไข" onclick="showEditCpForm('${esc(cp.id)}')">✏️</button>
+        <button class="btn-icon ${cp.active ? 'danger' : ''}" title="${cp.active ? 'ปิดการใช้งาน' : 'เปิดการใช้งาน'}"
+          onclick="toggleCpActive('${esc(cp.id)}', ${cp.active})">${cp.active ? '🔕' : '🔔'}</button>
+        <button class="btn-icon danger" title="ลบจุดตรวจ" onclick="deleteCp('${esc(cp.id)}', '${esc(cp.name)}')">🗑️</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function showAddCpForm() {
+  ADMIN_EDIT_ID = null;
+  document.getElementById('admin-form-title').textContent = '➕ เพิ่มจุดตรวจใหม่';
+  document.getElementById('af-submit-btn').textContent = '💾 เพิ่มจุดตรวจ';
+  document.getElementById('af-id').value = '';
+  document.getElementById('af-id').disabled = false;
+  document.getElementById('af-name').value = '';
+  document.getElementById('af-location').value = '';
+  document.getElementById('af-lat').value = '';
+  document.getElementById('af-lng').value = '';
+  document.getElementById('af-active').checked = true;
+  document.getElementById('af-active-wrap').style.display = 'none';
+  clearAdminMsg();
+  document.getElementById('admin-form-panel').style.display = 'block';
+  document.getElementById('af-id').focus();
+}
+
+function showEditCpForm(id) {
+  const cp = ADMIN_CPS.find(c => c.id === id);
+  if (!cp) return;
+  ADMIN_EDIT_ID = id;
+  document.getElementById('admin-form-title').textContent = `✏️ แก้ไข: ${cp.id} — ${cp.name}`;
+  document.getElementById('af-submit-btn').textContent = '💾 บันทึกการแก้ไข';
+  document.getElementById('af-id').value = cp.id;
+  document.getElementById('af-id').disabled = true;
+  document.getElementById('af-name').value = cp.name;
+  document.getElementById('af-location').value = cp.location || '';
+  document.getElementById('af-lat').value = cp.lat || '';
+  document.getElementById('af-lng').value = cp.lng || '';
+  document.getElementById('af-active').checked = cp.active;
+  document.getElementById('af-active-wrap').style.display = 'block';
+  clearAdminMsg();
+  document.getElementById('admin-form-panel').style.display = 'block';
+  document.getElementById('af-name').focus();
+}
+
+function hideAdminForm() {
+  document.getElementById('admin-form-panel').style.display = 'none';
+  ADMIN_EDIT_ID = null;
+}
+
+async function submitCpForm() {
+  const id       = document.getElementById('af-id').value.trim();
+  const name     = document.getElementById('af-name').value.trim();
+  const location = document.getElementById('af-location').value.trim();
+  const lat      = document.getElementById('af-lat').value.trim();
+  const lng      = document.getElementById('af-lng').value.trim();
+  const active   = document.getElementById('af-active').checked;
+
+  if (!name) { setAdminMsg('กรุณาระบุชื่อจุดตรวจ', 'error'); return; }
+  if (!ADMIN_EDIT_ID && !id) { setAdminMsg('กรุณาระบุรหัสจุดตรวจ', 'error'); return; }
+
+  const btn = document.getElementById('af-submit-btn');
+  btn.disabled = true; btn.textContent = '⏳ กำลังบันทึก...';
+
+  try {
+    let url;
+    if (ADMIN_EDIT_ID) {
+      url = `${GAS_URL}?action=update_checkpoint&id=${encodeURIComponent(ADMIN_EDIT_ID)}&name=${encodeURIComponent(name)}&location=${encodeURIComponent(location)}&lat=${lat}&lng=${lng}&active=${active}`;
+    } else {
+      url = `${GAS_URL}?action=add_checkpoint&id=${encodeURIComponent(id)}&name=${encodeURIComponent(name)}&location=${encodeURIComponent(location)}&lat=${lat}&lng=${lng}`;
+    }
+    const res = await apiFetch(url);
+    if (!res || res.status !== 'ok') throw new Error(res?.message || 'ไม่สำเร็จ');
+    setAdminMsg(res.message || 'บันทึกสำเร็จ', 'success');
+    await loadAdminCheckpoints();
+    setTimeout(hideAdminForm, 1200);
+  } catch(e) {
+    setAdminMsg('❌ ' + e.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = ADMIN_EDIT_ID ? '💾 บันทึกการแก้ไข' : '💾 เพิ่มจุดตรวจ';
+  }
+}
+
+async function toggleCpActive(id, currentActive) {
+  if (!confirm(`${currentActive ? 'ปิด' : 'เปิด'}การใช้งานจุดตรวจ "${id}"?`)) return;
+  try {
+    const res = await apiFetch(`${GAS_URL}?action=update_checkpoint&id=${encodeURIComponent(id)}&active=${!currentActive}`);
+    if (!res || res.status !== 'ok') throw new Error(res?.message || 'ไม่สำเร็จ');
+    toast(res.message, 'success');
+    await loadAdminCheckpoints();
+  } catch(e) { toast('❌ ' + e.message, 'error'); }
+}
+
+async function deleteCp(id, name) {
+  if (!confirm(`ลบจุดตรวจ "${name}" (${id}) ออกจากระบบ?\n\nหมายเหตุ: ข้อมูล check-in เดิมจะไม่ถูกลบ`)) return;
+  try {
+    const res = await apiFetch(`${GAS_URL}?action=delete_checkpoint&checkpointId=${encodeURIComponent(id)}`);
+    if (!res || res.status !== 'ok') throw new Error(res?.message || 'ไม่สำเร็จ');
+    toast(res.message, 'success');
+    await loadAdminCheckpoints();
+  } catch(e) { toast('❌ ' + e.message, 'error'); }
+}
+
+function setAdminMsg(text, type) {
+  const el = document.getElementById('admin-form-msg');
+  el.className = 'sbar ' + type;
+  el.textContent = text;
+}
+function clearAdminMsg() {
+  const el = document.getElementById('admin-form-msg');
+  el.className = 'sbar hidden'; el.textContent = '';
+}
+
+function openModal(url,cpName) { document.getElementById('modal-img').src=url; document.getElementById('modal-cp').textContent=cpName; document.getElementById('photo-modal').classList.remove('hidden'); }
+function closeModal() { document.getElementById('photo-modal').classList.add('hidden'); document.getElementById('modal-img').src=''; }
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();});
+</script>
+</body>
+</html>
