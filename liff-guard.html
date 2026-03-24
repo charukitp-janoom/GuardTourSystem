@@ -406,24 +406,16 @@ textarea.required { border-color:rgba(239,68,68,.5); }
 // ════════════════════════════════════════════════════
 // CONFIG
 // ════════════════════════════════════════════════════
-const GAS_URL      = 'https://script.google.com/macros/s/AKfycbwR6U7ixlDH2-Kw0PSCJMOioWRJIERkUEsX9sppsCMGmTaS2ermpPJ_Iriu5RC4OloE/exec';
-const LIFF_ID      = '2009561225-kCZlqoJZ';
+const GAS_URL      = 'https://script.google.com/macros/s/AKfycbweOsHINJk_DSPsueg-YEFaDUUahLcMqoGp1TzJJ6uS_ACCuKorrm38Ww21NPB4TV94kQ/exec';
+const LIFF_ID      = '2009191893-YFzSE10x';
 const GPS_RADIUS_M = 50;
 const OFFLINE_QUEUE_KEY = 'guardtour_offline_queue';
 
 const SHIFTS = [
-  { id: 1,  label: 'ผลัดที่ 1',  start: '22:00', end: '00:00' },
-  { id: 2,  label: 'ผลัดที่ 2',  start: '00:00', end: '02:00' },
-  { id: 3,  label: 'ผลัดที่ 3',  start: '02:00', end: '04:00' },
-  { id: 4,  label: 'ผลัดที่ 4',  start: '04:00', end: '06:00' },
-  { id: 5,  label: 'ผลัดที่ 5',  start: '06:00', end: '08:00' },
-  { id: 6,  label: 'ผลัดที่ 6',  start: '08:00', end: '10:00' },
-  { id: 7,  label: 'ผลัดที่ 7',  start: '10:00', end: '12:00' },
-  { id: 8,  label: 'ผลัดที่ 8',  start: '12:00', end: '14:00' },
-  { id: 9,  label: 'ผลัดที่ 9',  start: '14:00', end: '16:00' },
-  { id: 10, label: 'ผลัดที่ 10', start: '16:00', end: '18:00' },
-  { id: 11, label: 'ผลัดที่ 11', start: '18:00', end: '20:00' },
-  { id: 12, label: 'ผลัดที่ 12', start: '20:00', end: '22:00' },
+  { id: 1, label: 'ผลัดที่ 1', start: '22:00', end: '00:00' },
+  { id: 2, label: 'ผลัดที่ 2', start: '00:00', end: '02:00' },
+  { id: 3, label: 'ผลัดที่ 3', start: '02:00', end: '04:00' },
+  { id: 4, label: 'ผลัดที่ 4', start: '04:00', end: '06:00' },
 ];
 
 function detectShift(d) {
