@@ -30,22 +30,19 @@ const CONFIG = {
   TIMEZONE:            'Asia/Bangkok',
   DRIVE_FOLDER_NAME:   'GuardTourPhotos',
   REPORT_FOLDER_NAME:  'GuardTourReports',
-  LATE_GRACE_MINUTES:  30,
+  LATE_GRACE_MINUTES:  20,
   UNIT_NAME:           'ป.5 พัน.5',
 
+  // ตรวจจุด 8 ผลัด ผลัดละ 1 ชั่วโมง ช่วงเวลา 22:00 – 06:00 น.
   SHIFTS: [
-    { id: 1,  label: 'ผลัดที่ 1',  start: '22:00', end: '00:00' },
-    { id: 2,  label: 'ผลัดที่ 2',  start: '00:00', end: '02:00' },
-    { id: 3,  label: 'ผลัดที่ 3',  start: '02:00', end: '04:00' },
-    { id: 4,  label: 'ผลัดที่ 4',  start: '04:00', end: '06:00' },
-    { id: 5,  label: 'ผลัดที่ 5',  start: '06:00', end: '08:00' },
-    { id: 6,  label: 'ผลัดที่ 6',  start: '08:00', end: '10:00' },
-    { id: 7,  label: 'ผลัดที่ 7',  start: '10:00', end: '12:00' },
-    { id: 8,  label: 'ผลัดที่ 8',  start: '12:00', end: '14:00' },
-    { id: 9,  label: 'ผลัดที่ 9',  start: '14:00', end: '16:00' },
-    { id: 10, label: 'ผลัดที่ 10', start: '16:00', end: '18:00' },
-    { id: 11, label: 'ผลัดที่ 11', start: '18:00', end: '20:00' },
-    { id: 12, label: 'ผลัดที่ 12', start: '20:00', end: '22:00' },
+    { id: 1, label: 'ผลัดที่ 1', start: '22:00', end: '23:00' },
+    { id: 2, label: 'ผลัดที่ 2', start: '23:00', end: '00:00' },
+    { id: 3, label: 'ผลัดที่ 3', start: '00:00', end: '01:00' },
+    { id: 4, label: 'ผลัดที่ 4', start: '01:00', end: '02:00' },
+    { id: 5, label: 'ผลัดที่ 5', start: '02:00', end: '03:00' },
+    { id: 6, label: 'ผลัดที่ 6', start: '03:00', end: '04:00' },
+    { id: 7, label: 'ผลัดที่ 7', start: '04:00', end: '05:00' },
+    { id: 8, label: 'ผลัดที่ 8', start: '05:00', end: '06:00' },
   ],
 };
 
@@ -88,9 +85,18 @@ function setupProperties() {
 
   Logger.log(
     '✅ setupProperties เสร็จแล้ว\n' +
-    'เพิ่ม ' + added + ' property ใหม่\n' +
-    'ไปที่ Project Settings → Script Properties เพื่อแก้ค่าจริง\n' +
-    'Keys ที่ต้องแก้: SHEET_ID, CHANNEL_ACCESS_TOKEN, WEB_APP_URL, LIFF_ID, TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID'
+    'เพิ่ม ' + added + ' property ใหม่\n\n' +
+    '══ ขั้นตอนต่อไป (ทำตามลำดับ) ══\n' +
+    '1. Project Settings → Script Properties → แก้ค่าจริงทุก key\n' +
+    '   Keys: SHEET_ID, CHANNEL_ACCESS_TOKEN, WEB_APP_URL, LIFF_ID,\n' +
+    '         TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID\n' +
+    '2. Deploy Web App (Execute as: Me, Who has access: Anyone)\n' +
+    '   → คัดลอก URL ใส่ใน WEB_APP_URL + ใน liff-guard.html และ dashboard.html\n' +
+    '3. รัน setupLateAlertTrigger() — แจ้งเตือนยามขาดผลัด\n' +
+    '4. รัน setupReportTriggers()  — รายงานอัตโนมัติรายวัน/เดือน\n' +
+    '5. ⚠️ กรอกพิกัด GPS จริงของทุกจุดตรวจผ่าน dashboard Admin tab\n' +
+    '   (จุดที่พิกัด 0,0 จะทำให้ยามสแกน QR ไม่ได้)\n' +
+    '6. ทดสอบ: รัน testPushToSuperAdmin() ดูว่า Telegram ได้รับข้อความ'
   );
 }
 
@@ -146,7 +152,8 @@ function checkpointSheet() {
     sheet.setFrozenRows(1);
     sheet.getRange(1, 1, 1, headers.length)
       .setBackground('#1a1a2e').setFontColor('#f59e0b').setFontWeight('bold');
-    // ข้อมูล default จุดตรวจ 8 จุด (ซิงค์กับ qr-checkpoints.html)
+    // [FIX #3] ⚠️ พิกัด Lat/Lng = 0,0 หมายถึงยังไม่ได้ตั้งค่า → ยามจะสแกน QR ไม่ได้
+    // ต้องกรอกพิกัดจริงผ่าน dashboard.html แท็บ Admin หรือแก้ตรงใน Google Sheets คอลัมน์ D (Lat) และ E (Lng)
     sheet.getRange(2, 1, 7, 7).setValues([
       ['CP-01','ประตูทิศเหนือ','ทางเข้าด้านเหนือ',       0, 0, 'TRUE', 1],
       ['CP-02','ประตูทิศใต้',  'ทางเข้าด้านใต้',         0, 0, 'TRUE', 2],
@@ -156,7 +163,9 @@ function checkpointSheet() {
       ['CP-06','บ้านพักผู้พัน','บ้านพักนายทหาร',         0, 0, 'TRUE', 6],
       ['CP-07','บ้านพักซอย 5', 'บ้านพักซอย 5',           0, 0, 'TRUE', 7],
     ]);
-    Logger.log('✅ สร้าง Checkpoints sheet พร้อมข้อมูล 8 จุด');
+    // แจ้งเตือนผ่าน note ใน cell A1
+    sheet.getRange(1, 1).setNote('⚠️ ต้องกรอกพิกัด GPS จริงในคอลัมน์ D (Lat) และ E (Lng) ก่อนใช้งาน');
+    Logger.log('✅ สร้าง Checkpoints sheet พร้อมข้อมูล 7 จุด\n⚠️ กรุณากรอกพิกัด GPS จริงใน Sheet คอลัมน์ D และ E หรือผ่าน Admin Panel ใน dashboard.html');
   }
   return sheet;
 }
@@ -315,8 +324,10 @@ function checkAdminForLiff(userId) {
     const data = guardLogSheet().getDataRange().getValues();
     const now  = new Date();
     const SESSION_MS = CONFIG.SESSION_HOURS * 60 * 60 * 1000;
+    // [FIX #9] จำกัดการค้นหา 500 row ล่าสุดเพื่อป้องกัน Sheet ใหญ่ทำให้ช้า
+    const startIdx = Math.max(1, data.length - 500);
 
-    for (let i = data.length - 1; i > 0; i--) {
+    for (let i = data.length - 1; i >= startIdx; i--) {
       const [uid, loginTime, userName, status, adminType] = data[i];
       if (uid !== userId || status !== 'ACTIVE') continue;
       if (adminType === 'GUARD') {
@@ -416,6 +427,8 @@ function handleUploadAndNotifyPhoto(p) {
     const photoUrl = savePhotoToDrive(imageBase64, imageMime, tourId, checkpointId);
 
     if (photoUrl) {
+      // ── อัปเดต PhotoUrl ใน Sheet ──────────────────────────────────────────
+      let guardName = '', checkpointName = checkpointId, status = 'ปกติ', notes = '';
       try {
         const sheet = tourSheet(), data = sheet.getDataRange().getValues();
         const tsNorm = timestamp ? formatISOFromSheet_(new Date(timestamp.replace(' ','T'))).substring(0, 16) : '';
@@ -426,10 +439,30 @@ function handleUploadAndNotifyPhoto(p) {
             if (rowNorm !== tsNorm) continue;
           }
           sheet.getRange(i + 1, 9).setValue(photoUrl);
+          // ดึงข้อมูลสำหรับ caption
+          guardName      = String(data[i][3] || '');
+          checkpointName = String(data[i][2] || checkpointId);
+          status         = String(data[i][6] || 'ปกติ');
+          notes          = String(data[i][7] || '');
           break;
         }
       } catch(updateErr) { Logger.log('updatePhotoUrl in notify error: ' + updateErr.message); }
-      try { pushImageToAllSuperAdmins(photoUrl); } catch(lineErr) { Logger.log('pushImage error: ' + lineErr.message); }
+
+      // ── สร้าง caption สั้นๆ ส่งพร้อมรูป (ข้อความหลักส่งแยกใน notifyCheckin แล้ว) ──
+      try {
+        const now      = new Date();
+        const timeStr  = Utilities.formatDate(now, CONFIG.TIMEZONE, 'HH:mm');
+        const isAbn    = status === 'ผิดปกติ';
+        const caption  =
+          (isAbn ? '⚠️' : '✅') + ' ' + checkpointName +
+          '  |  ' + (guardName || '—') +
+          '  |  ' + timeStr +
+          (isAbn && notes ? '\n📝 ' + notes : '');
+        pushImageToAllSuperAdmins(photoUrl, caption);
+      } catch(captionErr) {
+        Logger.log('caption build error: ' + captionErr.message);
+        pushImageToAllSuperAdmins(photoUrl);
+      }
     }
     return jsonResp({ status: 'ok', photoUrl });
   } catch(e) {
@@ -531,18 +564,15 @@ function formatISOFromSheet_(val) {
 // =================================================================================
 function notifyCheckin({ userId, guardName, checkpointId, checkpointName, status, notes, tourStartTime }) {
   try {
-    const isAbnormal = (status === 'abnormal' || status === 'ผิดปกติ');
-
-    // ปกติ → ไม่ส่ง Telegram ทันที (รอสรุปรอบ handleGuardTourComplete แทน)
-    // ผิดปกติ → ส่งแจ้งเตือนด่วนทันที
-    if (!isAbnormal) return;
-
-    const now = new Date();
-    const startDate = tourStartTime
+    const now        = new Date();
+    const startDate  = tourStartTime
       ? new Date(String(tourStartTime).replace(' ', 'T'))
       : now;
+    const isAbnormal = (status === 'abnormal' || status === 'ผิดปกติ');
+
     let displayName = guardName || '—';
     try { if (userId) { const p = getUserProfile(userId); if (p && p.displayName) displayName = p.displayName; } } catch(_) {}
+
     let nowDate = '', nowTimeDot = '';
     try {
       nowDate    = thaiDateShort(now);
@@ -551,17 +581,34 @@ function notifyCheckin({ userId, guardName, checkpointId, checkpointName, status
       nowDate    = Utilities.formatDate(now, CONFIG.TIMEZONE, 'dd/MM/yy');
       nowTimeDot = Utilities.formatDate(now, CONFIG.TIMEZONE, 'HH:mm').replace(':', '.');
     }
+
     const shiftStr = shiftRangeStr_(startDate);
-    const msg =
-      `🚨 พบความผิดปกติ!\n` +
-      `━━━━━━━━━━━━━━━━\n` +
-      `📅 ${nowDate}, ${nowTimeDot}\n` +
-      `⏰ เวลา ${shiftStr}\n` +
-      `📍 จุด: ${checkpointName} (${checkpointId})\n` +
-      `📝 รายละเอียด: ${notes || '(ไม่ระบุ)'}\n` +
-      `━━━━━━━━━━━━━━━━\n` +
-      `👤 ${displayName}\n` +
-      `📷 รูปภาพจะถูกส่งต่อในอีกสักครู่`;
+    const cpLine   = `01. ${checkpointName} ${isAbnormal ? '⚠️' : '✅'}${isAbnormal && notes ? ' — ' + notes : ''}`;
+
+    let msg;
+    if (!isAbnormal) {
+      msg =
+        `เมื่อ  ${nowDate}, ${nowTimeDot}\n` +
+        `เวลา ${shiftStr}\n` +
+        `ได้ตรวจเวรยามจุดเสี่ยงจุดล่อแหลมภายในหน่วยฯ` +
+        ` ผลการปฏิบัติเป็นไปด้วยความเรียบร้อย เหตุการณ์ทั่วไปปกติครับ\n` +
+        `━━━━━━━━━━━━━━━━\n` +
+        `📍 จุดตรวจ (1 จุด):\n${cpLine}\n` +
+        `━━━━━━━━━━━━━━━━\n` +
+        `👤 ${displayName} ✔️`;
+    } else {
+      msg =
+        `เมื่อ  ${nowDate}, ${nowTimeDot}\n` +
+        `เวลา ${shiftStr}\n` +
+        `ได้ตรวจเวรยามจุดเสี่ยงจุดล่อแหลมภายในหน่วยฯ` +
+        ` พบความผิดปกติ 1 จุด ดังนี้\n` +
+        `━━━━━━━━━━━━━━━━\n` +
+        `⚠️ ${checkpointName}: ${notes || '(ไม่ระบุ)'}\n` +
+        `━━━━━━━━━━━━━━━━\n` +
+        `📍 รายงานจุดตรวจทั้งหมด (1 จุด):\n${cpLine}\n` +
+        `━━━━━━━━━━━━━━━━\n` +
+        `👤 ${displayName} ✔️`;
+    }
     pushToAllSuperAdmins(msg);
   } catch(e) { Logger.log('notifyCheckin error: ' + e.message); }
 }
@@ -708,12 +755,14 @@ function logoutGuard(replyToken, userId) {
       found = true;
     }
   }
-  replyMessageAdvanced(replyToken, [{ type: 'text', text: found ? '👋 ออกจากระบบเรียบร้อยแล้ว' : '⚠️ ไม่พบ session ที่ active อยู่',
-    quickReply: { items: [
-      { type:'action', action:{ type:'message', label:'🔑 Login ใหม่ (ยาม)',        text: ADMIN_SECRET() }},
-      { type:'action', action:{ type:'message', label:'🔑 Login ใหม่ (Supervisor)', text: SUPERADMIN_SECRET() }},
-    ]}
-  }]);
+  // ใช้ pushMessage แทน replyMessage
+  // เพราะ replyToken อาจหมดอายุถ้า GAS ประมวลผลช้า
+  // และไม่ส่งรหัสลับใน Quick Reply เพราะจะแสดงเป็นข้อความในห้องแชท
+  pushMessage(userId,
+    found
+      ? '👋 ออกจากระบบเรียบร้อยแล้ว\n\nหากต้องการเข้าระบบใหม่ พิมพ์รหัสลับได้เลยครับ'
+      : '⚠️ ไม่พบ session ที่ active อยู่\n\nหากต้องการเข้าระบบ พิมพ์รหัสลับได้เลยครับ'
+  );
 }
 
 // =================================================================================
@@ -816,13 +865,16 @@ function notifyAbnormal({ tourId, guardName, checkpointName, checkpointId, notes
 
 function pushToAllSuperAdmins(message) { telegramSendMessage(message); }
 
-function pushImageToAllSuperAdmins(driveUrl) {
+function pushImageToAllSuperAdmins(driveUrl, caption) {
   if (!driveUrl) return;
   try {
     const match = driveUrl.match(/[?&]id=([^&]+)/);
-    if (!match) { telegramSendMessage('📷 ดูรูป: ' + driveUrl); return; }
-    telegramSendPhoto(match[1]);
-  } catch(e) { Logger.log('pushImageToAllSuperAdmins error: ' + e.message); telegramSendMessage('📷 ดูรูป: ' + driveUrl); }
+    if (!match) { telegramSendMessage((caption ? caption + '\n\n' : '') + '📷 ดูรูป: ' + driveUrl); return; }
+    telegramSendPhoto(match[1], caption);
+  } catch(e) {
+    Logger.log('pushImageToAllSuperAdmins error: ' + e.message);
+    telegramSendMessage((caption ? caption + '\n\n' : '') + '📷 ดูรูป: ' + driveUrl);
+  }
 }
 
 // =================================================================================
@@ -889,16 +941,18 @@ function telegramSendMessage(text) {
   } catch(e) { Logger.log('telegramSendMessage error: ' + e.message); }
 }
 
-function telegramSendPhoto(fileId) {
+function telegramSendPhoto(fileId, caption) {
   try {
+    const payload = { chat_id: TELEGRAM_CHAT_ID(), photo: DriveApp.getFileById(fileId).getBlob() };
+    if (caption) payload.caption = String(caption).substring(0, 1024);
     const res = UrlFetchApp.fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN()}/sendPhoto`, {
       method: 'post', muteHttpExceptions: true,
-      payload: { chat_id: TELEGRAM_CHAT_ID(), photo: DriveApp.getFileById(fileId).getBlob() },
+      payload: payload,
     });
     if (res.getResponseCode() !== 200) Logger.log('Telegram sendPhoto error: ' + res.getContentText());
   } catch(e) {
     Logger.log('telegramSendPhoto error: ' + e.message);
-    telegramSendMessage('📷 ดูรูปภาพ: https://drive.google.com/file/d/' + fileId + '/view');
+    telegramSendMessage((caption ? caption + '\n\n' : '') + '📷 ดูรูปภาพ: https://drive.google.com/file/d/' + fileId + '/view');
   }
 }
 
@@ -1137,8 +1191,37 @@ function exportExcel(p) {
     sheet.getRange(dataRows.length+3,1).setValue(`สรุป: ${rows.length} รายการ | ${tc} รอบ | ${gc} ยาม | ผิดปกติ ${ab} จุด`).setFontWeight('bold').setFontColor('#f59e0b');
     const fileId = ss.getId(); DriveApp.getFileById(fileId).setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
     const xlsxUrl = `https://docs.google.com/spreadsheets/d/${fileId}/export?format=xlsx`;
+    // [FIX #7] ลบไฟล์ชั่วคราวหลังผู้ใช้ดาวน์โหลด (30 วิ) เพื่อไม่ให้ Drive เต็ม
+    try { ScriptApp.newTrigger('cleanupExportFiles_').timeBased().after(60000).create(); } catch(_) {}
+    PropertiesService.getScriptProperties().setProperty('_cleanup_file_' + fileId, fileId);
     return HtmlService.createHtmlOutput(`<!DOCTYPE html><html><head><meta charset="UTF-8"><style>body{font-family:sans-serif;background:#0b0c10;color:#dde1ec;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0}.box{text-align:center;padding:40px;background:#111218;border-radius:16px;border:1px solid rgba(245,166,35,.3);max-width:420px}h2{color:#f5a623;margin-bottom:12px}p{color:#5a5d72;font-size:14px;margin-bottom:20px}a{display:inline-block;background:#f5a623;color:#000;padding:12px 28px;border-radius:10px;text-decoration:none;font-weight:700;font-size:16px}a:hover{background:#ffd166}.note{font-size:12px;margin-top:16px;color:#3d3f52}</style></head><body><div class="box"><div style="font-size:48px;margin-bottom:12px">📊</div><h2>Guard Tour Report</h2><p>${startDate} ถึง ${endDate}<br>${rows.length} รายการ · ${tc} รอบ · ${gc} ยาม</p><a href="${xlsxUrl}" download="GuardTour_${startDate}_${endDate}.xlsx">⬇️ ดาวน์โหลด Excel</a><div class="note">กดปุ่มด้านบนหากไม่ดาวน์โหลดอัตโนมัติ</div></div><script>setTimeout(function(){window.location.href="${xlsxUrl}"},1500);</script></body></html>`);
   } catch(e) { Logger.log('exportExcel error: ' + e.message); return HtmlService.createHtmlOutput('<meta charset="UTF-8"><h3 style="color:red;font-family:sans-serif">Export Error</h3><pre>' + e.message + '</pre>'); }
+}
+
+// =================================================================================
+// CLEANUP — ลบไฟล์ export ชั่วคราวออกจาก Drive อัตโนมัติ [FIX #7]
+// =================================================================================
+function cleanupExportFiles_() {
+  try {
+    const props = PropertiesService.getScriptProperties().getProperties();
+    const prefix = '_cleanup_file_';
+    let removed = 0;
+    Object.entries(props).forEach(([k, fileId]) => {
+      if (!k.startsWith(prefix)) return;
+      try {
+        DriveApp.getFileById(fileId).setTrashed(true);
+        PropertiesService.getScriptProperties().deleteProperty(k);
+        removed++;
+      } catch(_) {
+        PropertiesService.getScriptProperties().deleteProperty(k);
+      }
+    });
+    // ลบ trigger ตัวนี้เองทิ้ง
+    ScriptApp.getProjectTriggers().forEach(t => {
+      if (t.getHandlerFunction() === 'cleanupExportFiles_') ScriptApp.deleteTrigger(t);
+    });
+    Logger.log('cleanupExportFiles_: ลบ ' + removed + ' ไฟล์');
+  } catch(e) { Logger.log('cleanupExportFiles_ error: ' + e.message); }
 }
 
 // =================================================================================
@@ -1173,7 +1256,7 @@ function checkLateAlert() {
       let adjNow = nowMin;
       if (nowMin < shiftStartMin && shiftStartMin >= 12 * 60) adjNow += 24 * 60;
       if (adjNow < graceMin)         continue;
-      if (adjNow > shiftEndMin + 120) continue;
+      if (adjNow > shiftEndMin + 60) continue;
 
       const hasCheckin = recentRows.some(r => {
         const cell = r[9] || r[5];
@@ -1210,8 +1293,9 @@ function checkLateAlert() {
 
 function setupLateAlertTrigger() {
   ScriptApp.getProjectTriggers().forEach(t => { if (t.getHandlerFunction() === 'checkLateAlert') ScriptApp.deleteTrigger(t); });
-  ScriptApp.newTrigger('checkLateAlert').timeBased().everyHours(1).create();
-  Logger.log('✅ Late Alert Trigger ตั้งค่าแล้ว (ทุก 1 ชั่วโมง)');
+  // [8-shift] เปลี่ยนจาก 1 ชม. เป็น 30 นาที เพื่อตรวจผลัดละ 1 ชม. ได้ทันเวลา
+  ScriptApp.newTrigger('checkLateAlert').timeBased().everyMinutes(30).create();
+  Logger.log('✅ Late Alert Trigger ตั้งค่าแล้ว (ทุก 30 นาที)');
 }
 
 function setupReportTriggers() {
