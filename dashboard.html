@@ -472,6 +472,8 @@ body::before{content:'';position:fixed;inset:0;background-image:repeating-linear
 // ══════════════════════════════════════
 // CONFIG
 // ══════════════════════════════════════
+// ⚠️  ต้องอัปเดต GAS_URL ทุกครั้งที่ Redeploy Web App ใน Google Apps Script
+//     Project Settings → Deploy → Web App → Copy URL
 const GAS_URL  = 'https://script.google.com/macros/s/AKfycbweOsHINJk_DSPsueg-YEFaDUUahLcMqoGp1TzJJ6uS_ACCuKorrm38Ww21NPB4TV94kQ/exec';
 // ❌ ไม่เก็บรหัสผ่านใน frontend — ตรวจสอบกับ GAS แทน (v3.0)
 const SHIFTS   = [
@@ -562,6 +564,18 @@ async function apiFetch(url) {
   const ctrl=new AbortController(), tid=setTimeout(()=>ctrl.abort(),25000);
   try { const r=await fetch(url,{redirect:'follow',signal:ctrl.signal}); clearTimeout(tid); const t=await r.text(); try{return JSON.parse(t);}catch(_){return null;} }
   catch(e){ clearTimeout(tid); throw e; }
+}
+// [FIX #10] apiPost — ส่งข้อมูลผ่าน POST FormData แทน GET เพื่อรองรับภาษาไทย/special chars
+async function apiPost(params) {
+  const ctrl=new AbortController(), tid=setTimeout(()=>ctrl.abort(),30000);
+  const form=new FormData();
+  Object.entries(params).forEach(([k,v])=>form.append(k,String(v)));
+  try {
+    const r=await fetch(GAS_URL,{method:'POST',body:form,redirect:'follow',signal:ctrl.signal});
+    clearTimeout(tid);
+    const t=await r.text();
+    try{return JSON.parse(t);}catch(_){return null;}
+  } catch(e){ clearTimeout(tid); throw e; }
 }
 
 // ══════════════════════════════════════
@@ -1054,13 +1068,13 @@ async function submitCpForm() {
   btn.disabled = true; btn.textContent = '⏳ กำลังบันทึก...';
 
   try {
-    let url;
+    let res;
     if (ADMIN_EDIT_ID) {
-      url = `${GAS_URL}?action=update_checkpoint&id=${encodeURIComponent(ADMIN_EDIT_ID)}&name=${encodeURIComponent(name)}&location=${encodeURIComponent(location)}&lat=${lat}&lng=${lng}&active=${active}`;
+      // [FIX #10] ใช้ POST แทน GET เพื่อรองรับภาษาไทยและ special chars
+      res = await apiPost({ action:'update_checkpoint', id:ADMIN_EDIT_ID, name, location, lat:lat||0, lng:lng||0, active:String(active) });
     } else {
-      url = `${GAS_URL}?action=add_checkpoint&id=${encodeURIComponent(id)}&name=${encodeURIComponent(name)}&location=${encodeURIComponent(location)}&lat=${lat}&lng=${lng}`;
+      res = await apiPost({ action:'add_checkpoint', id, name, location, lat:lat||0, lng:lng||0 });
     }
-    const res = await apiFetch(url);
     if (!res || res.status !== 'ok') throw new Error(res?.message || 'ไม่สำเร็จ');
     setAdminMsg(res.message || 'บันทึกสำเร็จ', 'success');
     await loadAdminCheckpoints();
@@ -1076,7 +1090,8 @@ async function submitCpForm() {
 async function toggleCpActive(id, currentActive) {
   if (!confirm(`${currentActive ? 'ปิด' : 'เปิด'}การใช้งานจุดตรวจ "${id}"?`)) return;
   try {
-    const res = await apiFetch(`${GAS_URL}?action=update_checkpoint&id=${encodeURIComponent(id)}&active=${!currentActive}`);
+    // [FIX #10] ใช้ POST
+    const res = await apiPost({ action:'update_checkpoint', id, active:String(!currentActive) });
     if (!res || res.status !== 'ok') throw new Error(res?.message || 'ไม่สำเร็จ');
     toast(res.message, 'success');
     await loadAdminCheckpoints();
@@ -1086,7 +1101,8 @@ async function toggleCpActive(id, currentActive) {
 async function deleteCp(id, name) {
   if (!confirm(`ลบจุดตรวจ "${name}" (${id}) ออกจากระบบ?\n\nหมายเหตุ: ข้อมูล check-in เดิมจะไม่ถูกลบ`)) return;
   try {
-    const res = await apiFetch(`${GAS_URL}?action=delete_checkpoint&checkpointId=${encodeURIComponent(id)}`);
+    // [FIX #10] ใช้ POST
+    const res = await apiPost({ action:'delete_checkpoint', checkpointId:id });
     if (!res || res.status !== 'ok') throw new Error(res?.message || 'ไม่สำเร็จ');
     toast(res.message, 'success');
     await loadAdminCheckpoints();
