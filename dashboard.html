@@ -107,7 +107,7 @@ body::before{content:'';position:fixed;inset:0;background-image:repeating-linear
 .chart-wrap canvas{max-height:100% !important}
 
 /* ── SHIFT GRID ── */
-.shift-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:3px;padding:12px}
+.shift-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:3px;padding:12px}
 .shift-cell{border-radius:6px;padding:7px 4px;text-align:center;background:var(--surface2);border:1px solid var(--border2);transition:all .2s;cursor:default}
 .shift-cell:hover{border-color:rgba(245,166,35,.4);background:var(--amber-dim)}
 .shift-cell.ok{border-color:rgba(6,214,114,.4);background:var(--green-dim)}
@@ -474,13 +474,17 @@ body::before{content:'';position:fixed;inset:0;background-image:repeating-linear
 // ══════════════════════════════════════
 // ⚠️  ต้องอัปเดต GAS_URL ทุกครั้งที่ Redeploy Web App ใน Google Apps Script
 //     Project Settings → Deploy → Web App → Copy URL
-const GAS_URL  = 'https://script.google.com/macros/s/AKfycbwR6U7ixlDH2-Kw0PSCJMOioWRJIERkUEsX9sppsCMGmTaS2ermpPJ_Iriu5RC4OloE/exec';
+const GAS_URL  = 'https://script.google.com/macros/s/AKfycbweOsHINJk_DSPsueg-YEFaDUUahLcMqoGp1TzJJ6uS_ACCuKorrm38Ww21NPB4TV94kQ/exec';
 // ❌ ไม่เก็บรหัสผ่านใน frontend — ตรวจสอบกับ GAS แทน (v3.0)
 const SHIFTS   = [
-  {id:1,label:'ผลัดที่ 1',start:'22:00',end:'00:00'},
-  {id:2,label:'ผลัดที่ 2',start:'00:00',end:'02:00'},
-  {id:3,label:'ผลัดที่ 3',start:'02:00',end:'04:00'},
-  {id:4,label:'ผลัดที่ 4',start:'04:00',end:'06:00'},
+  {id:1,label:'ผลัดที่ 1',start:'22:00',end:'23:00'},
+  {id:2,label:'ผลัดที่ 2',start:'23:00',end:'00:00'},
+  {id:3,label:'ผลัดที่ 3',start:'00:00',end:'01:00'},
+  {id:4,label:'ผลัดที่ 4',start:'01:00',end:'02:00'},
+  {id:5,label:'ผลัดที่ 5',start:'02:00',end:'03:00'},
+  {id:6,label:'ผลัดที่ 6',start:'03:00',end:'04:00'},
+  {id:7,label:'ผลัดที่ 7',start:'04:00',end:'05:00'},
+  {id:8,label:'ผลัดที่ 8',start:'05:00',end:'06:00'},
 ];
 
 let ALL_ROWS = [], CHECKPOINTS = [], GPS_TOURS = [];
